@@ -22,7 +22,7 @@ def sample_mixture(P0, P1, P_mask, n_samples):
         "mask": P_mask.sample((n_samples, )).bool()
     }
 
-def make_mixture_dist(sample_mask, sample_P0, sample_P1):
+def make_mixture_samples(sample_mask, sample_P0, sample_P1):
     return torch.where(
         sample_mask,
         sample_P1,
