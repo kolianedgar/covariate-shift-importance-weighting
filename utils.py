@@ -617,7 +617,8 @@ def run_single_experiment(
 
         P1 = make_P1_mean_shift(
             mu=mu,
-            lambda_vec=lambda_vec
+            lambda_vec=lambda_vec,
+            d=d
         )
 
     elif shift_type == "covariance":
@@ -704,13 +705,21 @@ def run_single_experiment(
 
     log_p1 = P1.log_prob(sample_P0)
 
-    log_mix = torch.logsumexp(
-        torch.stack([
-            math.log(1 - epsilon) + log_p0,
-            math.log(epsilon) + log_p1
-        ]),
-        dim=0
-    )
+    if epsilon == 0.0:
+        log_mix = log_p0
+
+    elif epsilon == 1.0:
+        log_mix = log_p1
+
+    else:
+        log_mix = torch.logsumexp(
+            torch.stack([
+                math.log(1.0 - epsilon) + log_p0,
+                math.log(epsilon) + log_p1
+            ]),
+            dim=0
+        )
+        
 
     kl_p0_to_test = torch.mean(
         log_p0 - log_mix
