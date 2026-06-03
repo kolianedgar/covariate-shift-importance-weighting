@@ -1,4 +1,3 @@
-from plotting import generate_all_plots
 from experiments import run_experiment_grid
 import os
 
@@ -47,13 +46,3 @@ results_df = run_experiment_grid(
     save_path="results/tables/small/results.csv",
     preview_rows=5,
 )
-
-results_df.to_csv(
-    "results/tables/small/results.csv",
-    index=False
-)
-print("[SAVED] results/tables/small/results.csv")
-
-generate_all_plots(results_df, PLOT_DIR)
-
-print("[DONE] Full experiment pipeline completed.")
