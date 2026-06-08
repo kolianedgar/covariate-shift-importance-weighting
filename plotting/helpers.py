@@ -10,8 +10,6 @@ def save_figure(filename, plot_dir):
 
     path = os.path.join(plot_dir, filename)
 
-    plt.tight_layout()
-
     plt.savefig(
         path,
         dpi=300,
