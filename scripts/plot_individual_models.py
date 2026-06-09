@@ -10,27 +10,57 @@ from plotting import (
     plot_test_mse_vs_chi_squared_fixed_epsilon,
     plot_weight_variance_vs_chi_sq_fixed_epsilon,
     plot_ess_vs_chi_sq_fixed_epsilon,
-    plot_test_mse_vs_ess_fixed_epsilon
+    plot_test_mse_vs_ess_fixed_epsilon,
+    plot_chi_squared_vs_lambda
 )
 
-PLOT_DIR_TEST_VS_CSD = "results/plots/small/test_mse_vs_chi_sq_divergence"
-PLOT_DIR_WEIGHT_VARIANCE_VS_CSD = "results/plots/small/weight_variance_vs_chi_sq_divergence"
-PLOT_DIR_ESS_VS_CSD = "results/plots/small/ess_vs_chi_sq_divergence"
-PLOT_DIR_TEST_VS_ESS = "results/plots/small/test_mse_vs_ess"
+PLOT_DIR_TEST_VS_CSD_SMALL = "results/plots/small/test_mse_vs_chi_sq_divergence"
+PLOT_DIR_WEIGHT_VARIANCE_VS_CSD_SMALL = "results/plots/small/weight_variance_vs_chi_sq_divergence"
+PLOT_DIR_ESS_VS_CSD_SMALL = "results/plots/small/ess_vs_chi_sq_divergence"
+PLOT_DIR_TEST_VS_ESS_SMALL = "results/plots/small/test_mse_vs_ess"
+PLOT_DIR_CSD_VS_LAMBDA_SMALL = "results/plots/small/chi_sq_vs_lambda"
 
-results_df = pd.read_csv(
+PLOT_DIR_TEST_VS_CSD_EXTENDED = "results/plots/extended/test_mse_vs_chi_sq_divergence"
+PLOT_DIR_WEIGHT_VARIANCE_VS_CSD_EXTENDED = "results/plots/extended/weight_variance_vs_chi_sq_divergence"
+PLOT_DIR_ESS_VS_CSD_EXTENDED = "results/plots/extended/ess_vs_chi_sq_divergence"
+PLOT_DIR_TEST_VS_ESS_EXTENDED = "results/plots/extended/test_mse_vs_ess"
+PLOT_DIR_CSD_VS_LAMBDA_EXTENDED = "results/plots/extended/chi_sq_vs_lambda"
+
+
+results_df_small = pd.read_csv(
     "results/tables/small/results.csv"
 )
 
-epsilon_grid = [0.0, 0.1, 0.2, 0.3]
-dimension_grid = [2, 10]
+results_df_extended = pd.read_csv(
+    "results/tables/extended/results.csv"
+)
 
-for epsilon in epsilon_grid:
-    for dimension in dimension_grid:
+epsilon_grid_small = [0.0, 0.1, 0.2, 0.3]
+dimension_grid_small = [2, 10]
+
+for epsilon in epsilon_grid_small:
+    for dimension in dimension_grid_small:
         if epsilon==0.0:
             continue
 
-        plot_test_mse_vs_chi_squared_fixed_epsilon(results_df, PLOT_DIR_TEST_VS_CSD, epsilon=epsilon, dimension=dimension)
-        plot_ess_vs_chi_sq_fixed_epsilon(results_df, PLOT_DIR_ESS_VS_CSD, epsilon=epsilon, dimension=dimension)
-        plot_weight_variance_vs_chi_sq_fixed_epsilon(results_df, PLOT_DIR_WEIGHT_VARIANCE_VS_CSD, epsilon=epsilon, dimension=dimension)
-        plot_test_mse_vs_ess_fixed_epsilon(results_df, PLOT_DIR_TEST_VS_ESS, epsilon=epsilon, dimension=dimension)
+        # plot_test_mse_vs_chi_squared_fixed_epsilon(results_df_small, PLOT_DIR_TEST_VS_CSD_SMALL, epsilon=epsilon, dimension=dimension)
+        plot_ess_vs_chi_sq_fixed_epsilon(results_df_small, PLOT_DIR_ESS_VS_CSD_SMALL, epsilon=epsilon, dimension=dimension)
+#         plot_weight_variance_vs_chi_sq_fixed_epsilon(results_df_small, PLOT_DIR_WEIGHT_VARIANCE_VS_CSD_SMALL, epsilon=epsilon, dimension=dimension)
+#         plot_test_mse_vs_ess_fixed_epsilon(results_df_small, PLOT_DIR_TEST_VS_ESS_SMALL, epsilon=epsilon, dimension=dimension)
+
+# plot_chi_squared_vs_lambda(results_df_small, PLOT_DIR_CSD_VS_LAMBDA_SMALL)
+
+epsilon_grid_extended = [0.0, 0.05, 0.10, 0.20, 0.30, 0.50]
+dimension_grid_extended = [2, 10, 50]
+
+for epsilon in epsilon_grid_extended:
+    for dimension in dimension_grid_extended:
+        if epsilon==0.0:
+            continue
+
+        # plot_test_mse_vs_chi_squared_fixed_epsilon(results_df_extended, PLOT_DIR_TEST_VS_CSD_EXTENDED, epsilon=epsilon, dimension=dimension)
+        plot_ess_vs_chi_sq_fixed_epsilon(results_df_extended, PLOT_DIR_ESS_VS_CSD_EXTENDED, epsilon=epsilon, dimension=dimension)
+#         plot_weight_variance_vs_chi_sq_fixed_epsilon(results_df_extended, PLOT_DIR_WEIGHT_VARIANCE_VS_CSD_EXTENDED, epsilon=epsilon, dimension=dimension)
+#         plot_test_mse_vs_ess_fixed_epsilon(results_df_extended, PLOT_DIR_TEST_VS_ESS_EXTENDED, epsilon=epsilon, dimension=dimension)
+
+# plot_chi_squared_vs_lambda(results_df_extended, PLOT_DIR_CSD_VS_LAMBDA_EXTENDED)
