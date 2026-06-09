@@ -83,6 +83,22 @@ def _nice_x_formatter(values):
         return ticker.FuncFormatter(lambda x, _: f"{x:.3f}")
     else:
         return ticker.FuncFormatter(lambda x, _: f"{x:.2f}")
+    
+def _nice_y_formatter(values):
+    """
+    Choose a clean tick formatter based on the magnitude of the y values.
+    Returns a matplotlib FuncFormatter.
+    """
+    max_val = values.max() if len(values) > 0 else 1.0
+ 
+    if max_val < 0.01:
+        return ticker.FuncFormatter(lambda x, _: f"{x:.2e}")
+    elif max_val < 0.1:
+        return ticker.FuncFormatter(lambda x, _: f"{x:.4f}")
+    elif max_val < 1.0:
+        return ticker.FuncFormatter(lambda x, _: f"{x:.3f}")
+    else:
+        return ticker.FuncFormatter(lambda x, _: f"{x:.2f}")
 
 # ============================================================
 # 1 - Test MSE vs Chi-Squared Divergence - Value of Epsilon Fixed
@@ -914,5 +930,160 @@ def plot_chi_squared_vs_lambda(
  
     target_suffix = f"_{target_mode}" if target_mode else ""
     filename = f"chi_squared_vs_lambda{target_suffix}.png"
+ 
+    save_figure(filename, plot_dir)
+
+def plot_chi_squared_vs_alpha(
+    df,
+    plot_dir,
+    target_mode=None,
+    alpha_max=None,
+    figsize=(16, 5),
+):
+    """
+    Plot Chi-Squared divergence vs alpha (covariance scaling factor).
+ 
+    Fixes shift_type="covariance" (lambda=0) and aggregates across all
+    epsilon levels and seeds, since chi-squared depends only on the shift
+    parameters and dimension, not on epsilon.
+ 
+    Deduplicates to one representative model (OLS) before aggregating
+    since chi-squared is identical across all models for the same
+    experimental configuration.
+ 
+    Under covariance shift, chi-squared grows exponentially with both
+    alpha and dimension. At high d (e.g. d=50) and high alpha (e.g.
+    alpha=2 or alpha=3), the values become extreme and compress the rest
+    of the plot. Use alpha_max to exclude these if needed.
+ 
+    Layout
+    ------
+    3 panels side by side, one per dimension:
+        d = 2 | d = 10 | d = 50
+ 
+    Each panel has a single line: chi-squared vs alpha,
+    aggregated over all seeds and epsilon levels.
+ 
+    Parameters
+    ----------
+    df          : pd.DataFrame
+        Full results dataframe.
+    plot_dir    : str
+        Directory to save the figure.
+    target_mode : str or None
+        If provided, filters to "linear" or "nonlinear".
+    alpha_max   : float or None
+        If provided, excludes rows where alpha > alpha_max before
+        plotting. Useful for preventing extreme chi-squared values at
+        high alpha and high dimension from compressing the y-axis.
+        E.g. alpha_max=1.5 excludes alpha=2.0 and alpha=3.0.
+        Default None (no exclusion).
+    figsize     : tuple
+        Figure size.
+    """
+ 
+    # --------------------------------------------------------
+    # 1. FILTER
+    # --------------------------------------------------------
+ 
+    data = df.copy()
+ 
+    # Fix shift type to covariance (lambda=0, alpha varies)
+    data = data[data["shift_type"] == "covariance"]
+ 
+    if target_mode is not None:
+        data = data[data["target_mode"] == target_mode]
+ 
+    if alpha_max is not None:
+        excluded = data[data["alpha"] > alpha_max]["alpha"].unique()
+        if len(excluded) > 0:
+            print(
+                f"[INFO] Excluding alpha values > {alpha_max}: "
+                f"{sorted(excluded)}"
+            )
+        data = data[data["alpha"] <= alpha_max]
+ 
+    if data.empty:
+        print("[WARN] No data for shift_type=covariance after filtering. Skipping.")
+        return
+ 
+    # --------------------------------------------------------
+    # 2. DEDUPLICATE BY MODEL
+    #    Chi-squared is identical across models. Keep one
+    #    representative to avoid inflating the aggregation.
+    # --------------------------------------------------------
+ 
+    data = data[data["model_type"] == "ols"].copy()
+ 
+    # --------------------------------------------------------
+    # 3. AGGREGATE over seeds and epsilon levels
+    #    No binning needed — alpha has only 5 discrete values
+    #    (or fewer if alpha_max is set).
+    # --------------------------------------------------------
+ 
+    agg = aggregate_results(
+        data,
+        groupby_cols=["dimension", "alpha"],
+        metric_cols=["chi_squared_divergence"],
+    )
+ 
+    # --------------------------------------------------------
+    # 4. PLOT
+    # --------------------------------------------------------
+ 
+    fig, axes = plt.subplots(1, 3, figsize=figsize, sharey=False)
+ 
+    for ax, d in zip(axes, DIMENSIONS):
+ 
+        subset = agg[
+            agg["dimension"] == d
+        ].sort_values("alpha")
+ 
+        if subset.empty:
+            ax.set_title(DIM_LABELS[d], fontsize=11)
+            ax.set_xlabel("α", fontsize=10)
+            ax.set_ylabel("χ² Divergence", fontsize=10)
+            continue
+ 
+        color = DIM_COLORS[d]
+ 
+        ax.plot(
+            subset["alpha"],
+            subset["chi_squared_divergence_mean"],
+            color=color,
+            linewidth=2,
+            marker="o",
+            markersize=4,
+        )
+ 
+        # Clean y-axis formatting based on value magnitude
+        ax.yaxis.set_major_formatter(
+            _nice_y_formatter(subset["chi_squared_divergence_mean"])
+        )
+        ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=6, prune="both"))
+ 
+        ax.set_title(DIM_LABELS[d], fontsize=11, fontweight="normal", pad=8)
+        ax.set_xlabel("α (covariance scale factor)", fontsize=10)
+        ax.set_ylabel("χ² Divergence", fontsize=10)
+        ax.tick_params(labelsize=9)
+        ax.grid(True, linewidth=0.4, alpha=0.5)
+        ax.set_xlim(left=subset["alpha"].min() - 0.05)
+        ax.set_ylim(bottom=0)
+ 
+    # --------------------------------------------------------
+    # 5. TITLE AND SAVE
+    # --------------------------------------------------------
+ 
+    alpha_str  = f", α ≤ {alpha_max}" if alpha_max is not None else ""
+    target_tag = f", target={target_mode}" if target_mode else ""
+    fig.suptitle(
+        f"χ² Divergence vs α  (covariance shift, aggregated over all ε{alpha_str}{target_tag})",
+        fontsize=12,
+        y=1.02,
+    )
+ 
+    alpha_suffix  = f"_alphamax{str(alpha_max).replace('.', 'p')}" if alpha_max is not None else ""
+    target_suffix = f"_{target_mode}" if target_mode else ""
+    filename      = f"chi_squared_vs_alpha{alpha_suffix}{target_suffix}.png"
  
     save_figure(filename, plot_dir)

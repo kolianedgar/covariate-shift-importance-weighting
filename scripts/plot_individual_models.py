@@ -11,7 +11,8 @@ from plotting import (
     plot_weight_variance_vs_chi_sq_fixed_epsilon,
     plot_ess_vs_chi_sq_fixed_epsilon,
     plot_test_mse_vs_ess_fixed_epsilon,
-    plot_chi_squared_vs_lambda
+    plot_chi_squared_vs_lambda,
+    plot_chi_squared_vs_alpha
 )
 
 PLOT_DIR_TEST_VS_CSD_SMALL = "results/plots/small/test_mse_vs_chi_sq_divergence"
@@ -25,7 +26,7 @@ PLOT_DIR_WEIGHT_VARIANCE_VS_CSD_EXTENDED = "results/plots/extended/weight_varian
 PLOT_DIR_ESS_VS_CSD_EXTENDED = "results/plots/extended/ess_vs_chi_sq_divergence"
 PLOT_DIR_TEST_VS_ESS_EXTENDED = "results/plots/extended/test_mse_vs_ess"
 PLOT_DIR_CSD_VS_LAMBDA_EXTENDED = "results/plots/extended/chi_sq_vs_lambda"
-
+PLOT_DIR_CSD_VS_ALPHA_EXTENDED = "results/plots/extended/chi_sq_vs_alpha"
 
 results_df_small = pd.read_csv(
     "results/tables/small/results.csv"
@@ -63,4 +64,6 @@ for epsilon in epsilon_grid_extended:
 #         plot_weight_variance_vs_chi_sq_fixed_epsilon(results_df_extended, PLOT_DIR_WEIGHT_VARIANCE_VS_CSD_EXTENDED, epsilon=epsilon, dimension=dimension)
 #         plot_test_mse_vs_ess_fixed_epsilon(results_df_extended, PLOT_DIR_TEST_VS_ESS_EXTENDED, epsilon=epsilon, dimension=dimension)
 
+
+plot_chi_squared_vs_alpha(results_df_extended, PLOT_DIR_CSD_VS_ALPHA_EXTENDED)
 # plot_chi_squared_vs_lambda(results_df_extended, PLOT_DIR_CSD_VS_LAMBDA_EXTENDED)
