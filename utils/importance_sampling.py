@@ -6,7 +6,7 @@ def compute_importance_weights(P0, P1, X, epsilon):
     log_p0 = log_density(P0, X)
     log_p1 = log_density(P1, X)
 
-    weights = (1-epsilon) + epsilon * torch.exp(log_p1 - log_p0),
+    weights = (1-epsilon) + epsilon * torch.exp(log_p1 - log_p0)
     return weights
 
 def effective_sample_size(weights):

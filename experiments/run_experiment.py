@@ -236,6 +236,34 @@ def run_single_experiment(
     ).item()
 
     # ============================================================
+    # 8. CHI-SQUARED DIVERGENCE (MONTE-CARLO ESTIMATION)
+    # ============================================================
+
+    sample_P0 = sample_distribution(
+        dist=P0,
+        n=n_test
+    )
+
+    chi2_weights = compute_importance_weights(
+        X=sample_P0,
+        P0=P0,
+        P1=P1,
+        epsilon=epsilon
+    )
+
+    chi2_divergence = max(
+        0.0,
+        (torch.mean(chi2_weights ** 2) - 1.0).item()
+    )
+
+    chi2_weight_mean = torch.mean(chi2_weights).item()
+
+    chi2_weight_variance = torch.var(
+        chi2_weights,
+        unbiased=False
+    ).item()
+
+    # ============================================================
     # 8. CONVERT TO NUMPY
     # ============================================================
 
@@ -373,6 +401,12 @@ def run_single_experiment(
 
         "kl_divergence": kl_p0_to_test,
 
+        "chi_squared_divergence": chi2_divergence,
+
+        "chi2_weight_mean": chi2_weight_mean,
+
+        "chi2_weight_variance": chi2_weight_variance,
+        
         # --------------------------------------------------------
         # importance-weight diagnostics
         # --------------------------------------------------------
