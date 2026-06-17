@@ -1,11 +1,13 @@
 import math
 import torch
 import numpy as np
+
 from utils import generate_targets
 from utils import (
     compute_importance_weights,
     weight_statistics,
-    effective_sample_size
+    effective_sample_size,
+    compute_density_ratio
 )
 
 from utils import (
@@ -24,6 +26,12 @@ from utils import (
     train_weighted_linear_svr,
     train_weighted_rbf_svr,
     predict_model
+)
+
+from utils import (
+    monte_carlo_kl_divergence,
+    monte_carlo_chi_squared_divergence,
+    chi_squared_divergence_theoretical
 )
 
 from utils import (
@@ -207,64 +215,47 @@ def run_single_experiment(
     # 7. KL DIVERGENCE (MONTE-CARLO ESTIMATION)
     # ============================================================
 
-    sample_P0 = sample_distribution(
-        dist=P0,
-        n=n_test
-    )
-
-    log_p0 = P0.log_prob(sample_P0)
-
-    log_p1 = P1.log_prob(sample_P0)
-
-    if epsilon == 0.0:
-        log_mix = log_p0
-
-    elif epsilon == 1.0:
-        log_mix = log_p1
-
-    else:
-        log_mix = torch.logsumexp(
-            torch.stack([
-                math.log(1.0 - epsilon) + log_p0,
-                math.log(epsilon) + log_p1
-            ]),
-            dim=0
-        )
-        
-    kl_p0_to_test = torch.mean(
-        log_p0 - log_mix
-    ).item()
+    kl_p1_to_p0 = monte_carlo_kl_divergence(P0, P1, n_test)
 
     # ============================================================
     # 8. CHI-SQUARED DIVERGENCE (MONTE-CARLO ESTIMATION)
     # ============================================================
 
-    sample_P0 = sample_distribution(
-        dist=P0,
-        n=n_test
-    )
-
-    chi2_weights = compute_importance_weights(
-        X=sample_P0,
-        P0=P0,
-        P1=P1,
-        epsilon=epsilon
-    )
-
-    chi2_divergence = max(
-        0.0,
-        (torch.mean(chi2_weights ** 2) - 1.0).item()
-    )
-
-    chi2_weight_mean = torch.mean(chi2_weights).item()
-
-    chi2_weight_variance = torch.var(
-        chi2_weights,
-        unbiased=False
-    ).item()
+    chi2_divergence, chi2_weight_mean, chi2_weight_variance = monte_carlo_chi_squared_divergence(P0, P1, n_test)
 
     # ============================================================
-    # 8. CONVERT TO NUMPY
+    # 9. CHI-SQUARED DIVERGENCE (THEORETICAL)
+    # ============================================================
+
+    chi2_divergence_theoretical_value = (
+        chi_squared_divergence_theoretical(
+            d=d,
+            lambda_scalar=lambda_scalar,
+            alpha=alpha,
+            shift_type=shift_type,
+        )
+    )
+
+    if math.isfinite(
+        chi2_divergence_theoretical_value
+    ):
+
+        chi2_relative_error = abs(
+            chi2_divergence
+            -
+            chi2_divergence_theoretical_value
+        ) / max(
+            abs(
+                chi2_divergence_theoretical_value
+            ),
+            1e-12
+        )
+
+    else:
+        chi2_relative_error = np.inf
+
+    # ============================================================
+    # 10. CONVERT TO NUMPY
     # ============================================================
 
     X_train_np = X_train.detach().cpu().numpy()
@@ -278,7 +269,7 @@ def run_single_experiment(
     weights_np = weights.detach().cpu().numpy()
 
     # ============================================================
-    # 9. TRAIN MODEL
+    # 11. TRAIN MODEL
     # ============================================================
 
     if model_type == "ols":
@@ -332,7 +323,7 @@ def run_single_experiment(
         )
 
     # ============================================================
-    # 10. PREDICTIONS
+    # 12. PREDICTIONS
     # ============================================================
 
     y_train_pred = predict_model(
@@ -346,7 +337,7 @@ def run_single_experiment(
     )
 
     # ============================================================
-    # 11. LOSSES
+    # 13. LOSSES
     # ============================================================
 
     train_mse = mse(
@@ -374,7 +365,7 @@ def run_single_experiment(
     )
 
     # ============================================================
-    # 12. RESULTS
+    # 14. RESULTS
     # ============================================================
 
     results = {
@@ -399,13 +390,23 @@ def run_single_experiment(
         # divergence metrics
         # --------------------------------------------------------
 
-        "kl_divergence": kl_p0_to_test,
+        "kl_divergence":
+            kl_p1_to_p0,
 
-        "chi_squared_divergence": chi2_divergence,
+        "chi_squared_divergence":
+            chi2_divergence,
 
-        "chi2_weight_mean": chi2_weight_mean,
+        "chi_squared_divergence_theoretical":
+            chi2_divergence_theoretical_value,
 
-        "chi2_weight_variance": chi2_weight_variance,
+        "chi_squared_relative_error":
+            chi2_relative_error,
+
+        "chi2_weight_mean":
+            chi2_weight_mean,
+
+        "chi2_weight_variance":
+            chi2_weight_variance,
         
         # --------------------------------------------------------
         # importance-weight diagnostics

@@ -18,6 +18,7 @@ from .importance_sampling import (
     compute_importance_weights,
     effective_sample_size,
     weight_statistics,
+    compute_density_ratio
 )
 
 from .metrics import (
@@ -39,6 +40,11 @@ from .targets import (
     generate_targets,
 )
 
+from .divergence import (
+    monte_carlo_kl_divergence,
+    monte_carlo_chi_squared_divergence,
+    chi_squared_divergence_theoretical
+)
 __all__ = [
     # density
     "log_density",
@@ -56,6 +62,7 @@ __all__ = [
     "compute_importance_weights",
     "effective_sample_size",
     "weight_statistics",
+    "compute_density_ratio",
 
     # metrics
     "mse",
@@ -72,4 +79,9 @@ __all__ = [
 
     # targets
     "generate_targets",
+
+    # divergences
+    "monte_carlo_kl_divergence",
+    "monte_carlo_chi_squared_divergence",
+    "chi_squared_divergence_theoretical"
 ]

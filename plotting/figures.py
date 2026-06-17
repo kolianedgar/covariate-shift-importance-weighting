@@ -32,7 +32,7 @@ SHIFT_LABELS = {
 
 SHIFT_TYPES = ["mean", "covariance", "combined"]
  
-SHIFT_COLORS = {
+SHIFT_COLOURS = {
     "mean":       "#4C9BE8",
     "covariance": "#E8734C",
     "combined":   "#6ABF69",
@@ -55,7 +55,7 @@ SHIFT_CMAPS = {
 
 DIMENSIONS = [2, 10, 50]
  
-DIM_COLORS = {
+DIM_COLOURS = {
     2:  "#4C9BE8",
     10: "#E8734C",
     50: "#6ABF69",
@@ -66,6 +66,52 @@ DIM_LABELS = {
     10: "d = 10",
     50: "d = 50",
 }
+
+SAMPLE_ESTIMATOR_EXPONENT_THRESHOLD = 10.0  # d * lambda^2 > 10 is unreliable
+
+def _check_estimator_reliability(d, lambda_vals):
+    """
+    Warn about lambda values where d * lambda^2 exceeds the threshold,
+    indicating that the sample-based chi-squared estimator is unreliable.
+ 
+    At high d and lambda, training samples from N(0, I) have negligible
+    overlap with the shifted distribution N(lambda*1, I), causing the
+    Monte Carlo estimator of E[r(x)^2] to collapse toward zero even
+    though the true chi-squared value exp(d * lambda^2) - 1 is large.
+    """
+    unreliable = [
+        lam for lam in lambda_vals
+        if d * lam ** 2 > SAMPLE_ESTIMATOR_EXPONENT_THRESHOLD
+    ]
+    if unreliable:
+        true_vals = {lam: np.exp(d * lam**2) - 1 for lam in unreliable}
+        print(
+            f"[WARN] d={d}: sample estimator unreliable at "
+            f"λ = {unreliable} (d·λ² > {SAMPLE_ESTIMATOR_EXPONENT_THRESHOLD}). "
+            f"True χ² values: "
+            + ", ".join(f"λ={lam} → {val:.3e}" for lam, val in true_vals.items())
+            + f". With n=1000 samples from N(0,I), virtually no points land "
+            f"near the shifted mean at these settings, causing the estimator "
+            f"to collapse toward zero. Plotted values at these λ are unreliable."
+        )
+ 
+ 
+def _check_non_monotone(d, subset):
+    """
+    Detect and warn about non-monotone behaviour in the aggregated
+    chi-squared values, which indicates estimator collapse.
+    Chi-squared should be monotonically increasing in lambda.
+    """
+    vals = subset["chi_squared_divergence_mean"].values
+    lambdas = subset["lambda"].values
+    for i in range(1, len(vals)):
+        if vals[i] < vals[i - 1]:
+            print(
+                f"[WARN] d={d}: non-monotone chi-squared detected between "
+                f"λ={lambdas[i-1]} (χ²={vals[i-1]:.4f}) and "
+                f"λ={lambdas[i]} (χ²={vals[i]:.4f}). "
+                f"This indicates sample estimator collapse, not a true decrease."
+            )
 
 def _nice_x_formatter(values):
     """
@@ -104,7 +150,7 @@ def _nice_y_formatter(values):
 # 1 - Test MSE vs Chi-Squared Divergence - Value of Epsilon Fixed
 # ============================================================
 
-def plot_test_mse_vs_chi_squared_fixed_epsilon(
+def plot_generalisation_gap_vs_chi_squared_fixed_epsilon(
     df,
     plot_dir,
     epsilon,
@@ -114,7 +160,8 @@ def plot_test_mse_vs_chi_squared_fixed_epsilon(
     figsize=(16, 5),
 ):
     """
-    Plot Test MSE vs Chi-Squared divergence, fixed at a single epsilon level.
+    Plot Generalisation Gap vs Chi-Squared divergence, fixed at a single
+    epsilon level.
  
     Layout
     ------
@@ -130,21 +177,21 @@ def plot_test_mse_vs_chi_squared_fixed_epsilon(
  
     Parameters
     ----------
-    df          : pd.DataFrame
+    df            : pd.DataFrame
         Full results dataframe.
-    plot_dir    : str
+    plot_dir      : str
         Directory to save the figure.
-    epsilon     : float
+    epsilon       : float
         Contamination level to fix (e.g. 0.05 or 0.50).
-    dimension   : int
+    dimension     : int
         Dimension to fix (default 10).
-    target_mode : str or None
+    target_mode   : str or None
         If provided, filters to "linear" or "nonlinear".
-    kl_n_bins   : int
+    chi_sq_n_bins : int
         Number of equal-width bins for Chi-Squared divergence aggregation.
-        Binning prevents multiple Chi-Squared values mapping to the same x point
-        across different (lambda, alpha) combinations.
-    figsize     : tuple
+        Binning prevents multiple Chi-Squared values mapping to the same
+        x point across different (lambda, alpha) combinations.
+    figsize       : tuple
         Figure size.
     """
  
@@ -164,44 +211,76 @@ def plot_test_mse_vs_chi_squared_fixed_epsilon(
         return
  
     # --------------------------------------------------------
-    # 2. BIN Chi-Squared DIVERGENCE
-    #    Chi-Squared is a continuous value driven by (lambda, alpha, epsilon).
-    #    Binning gives stable x-axis points for aggregation.
+    # 2. FILTER inf AND NaN FROM chi_squared_divergence
     # --------------------------------------------------------
  
-    data = data.copy()
-    data["chi_sq_bin"] = pd.cut(
-        data["chi_squared_divergence"],
-        bins=chi_sq_n_bins,
-        labels=False,
-    )
+    n_before = len(data)
+    data = data[np.isfinite(data["chi_squared_divergence"])].copy()
+    n_after = len(data)
  
-    # Bin centre for plotting
-    bin_edges = pd.cut(
-        data["chi_squared_divergence"],
-        bins=chi_sq_n_bins,
-    ).cat.categories
+    if n_after < n_before:
+        print(
+            f"[INFO] Dropped {n_before - n_after} rows with inf/NaN "
+            f"chi_squared_divergence (likely float64 overflow at high d and alpha)."
+        )
  
-    bin_centres = np.array([interval.mid for interval in bin_edges])
+    if data.empty:
+        print("[WARN] No finite chi_squared_divergence values remain. Skipping.")
+        return
  
     # --------------------------------------------------------
-    # 3. AGGREGATE over seeds (and lambda/alpha within each bin)
+    # 3. BIN CHI-SQUARED DIVERGENCE PER SHIFT TYPE
+    #    Bin separately per shift type so each line uses the
+    #    full range of its own chi-squared values.
+    # --------------------------------------------------------
+ 
+    binned_parts = []
+ 
+    for shift in SHIFT_TYPES:
+ 
+        part = data[data["shift_type"] == shift].copy()
+ 
+        if part.empty:
+            continue
+ 
+        part["chi_sq_bin"] = pd.cut(
+            part["chi_squared_divergence"],
+            bins=chi_sq_n_bins,
+            labels=False,
+        )
+ 
+        bin_edges = pd.cut(
+            part["chi_squared_divergence"],
+            bins=chi_sq_n_bins,
+        ).cat.categories
+ 
+        bin_centres = np.array([interval.mid for interval in bin_edges])
+ 
+        part["chi_sq_mid"] = part["chi_sq_bin"].apply(
+            lambda b: bin_centres[int(b)] if not pd.isna(b) else np.nan
+        )
+ 
+        binned_parts.append(part)
+ 
+    if not binned_parts:
+        print("[WARN] No binned data produced. Skipping.")
+        return
+ 
+    data = pd.concat(binned_parts, ignore_index=True)
+    data = data.dropna(subset=["chi_sq_mid"])
+ 
+    # --------------------------------------------------------
+    # 4. AGGREGATE over seeds (and lambda/alpha within each bin)
     # --------------------------------------------------------
  
     agg = aggregate_results(
         data,
-        groupby_cols=["model_type", "shift_type", "chi_sq_bin"],
-        metric_cols=["test_mse"],
+        groupby_cols=["model_type", "shift_type", "chi_sq_bin", "chi_sq_mid"],
+        metric_cols=["generalisation_gap"],
     )
- 
-    # Map bin index to bin centre
-    agg["chi_sq_mid"] = agg["chi_sq_bin"].apply(
-        lambda b: bin_centres[int(b)] if not pd.isna(b) else np.nan
-    )
-    agg = agg.dropna(subset=["chi_sq_mid"])
  
     # --------------------------------------------------------
-    # 4. PLOT
+    # 5. PLOT
     # --------------------------------------------------------
  
     fig, axes = plt.subplots(1, 3, figsize=figsize, sharey=False)
@@ -210,12 +289,11 @@ def plot_test_mse_vs_chi_squared_fixed_epsilon(
  
         for shift in SHIFT_TYPES:
  
-            ls    = SHIFT_LINESTYLES[shift]
-            label = SHIFT_LABELS[shift]
+            ls = SHIFT_LINESTYLES[shift]
  
-            for model, color, weight_label in [
-                (model_uw, COLOUR_UNWEIGHTED, "unweighted"),
-                (model_w,  COLOUR_WEIGHTED,   "weighted"),
+            for model, colour in [
+                (model_uw, COLOUR_UNWEIGHTED),
+                (model_w,  COLOUR_WEIGHTED),
             ]:
  
                 subset = agg[
@@ -228,29 +306,26 @@ def plot_test_mse_vs_chi_squared_fixed_epsilon(
  
                 ax.plot(
                     subset["chi_sq_mid"],
-                    subset["test_mse_mean"],
-                    color=color,
+                    subset["generalisation_gap_mean"],
+                    color=colour,
                     linestyle=ls,
                     linewidth=1.8,
                     marker="o",
                     markersize=3,
                 )
  
- 
- 
         ax.set_title(panel_title, fontsize=11, fontweight="normal", pad=8)
-        ax.set_xlabel("Chi-Squared Divergence", fontsize=10)
-        ax.set_ylabel("Test MSE",      fontsize=10)
+        ax.set_xlabel("χ² Divergence", fontsize=10)
+        ax.set_ylabel("Generalisation Gap", fontsize=10)
         ax.tick_params(labelsize=9)
         ax.grid(True, linewidth=0.4, alpha=0.5)
         ax.set_xlim(left=0)
  
     # --------------------------------------------------------
-    # 5. SHARED LEGEND
-    #    Two legend groups: colour (weighted/unweighted) + line style (shift type)
+    # 6. SHARED LEGEND
     # --------------------------------------------------------
  
-    color_handles = [
+    colour_handles = [
         mlines.Line2D([], [], color=COLOUR_UNWEIGHTED, linewidth=2, label="unweighted"),
         mlines.Line2D([], [], color=COLOUR_WEIGHTED,   linewidth=2, label="weighted"),
     ]
@@ -260,34 +335,32 @@ def plot_test_mse_vs_chi_squared_fixed_epsilon(
         for s, ls in SHIFT_LINESTYLES.items()
     ]
  
-    all_handles = color_handles + style_handles
- 
     fig.legend(
-        handles=all_handles,
+        handles=colour_handles + style_handles,
         loc="lower center",
-        ncol=len(all_handles),
+        ncol=len(colour_handles) + len(style_handles),
         fontsize=9,
         frameon=True,
         bbox_to_anchor=(0.5, -0.08),
     )
  
     # --------------------------------------------------------
-    # 6. TITLE AND SAVE
+    # 7. TITLE AND SAVE
     # --------------------------------------------------------
  
     target_str = f", target={target_mode}" if target_mode else ""
     fig.suptitle(
-        f"Test MSE vs Chi-Squared Divergence  (d={dimension}, ε={epsilon}{target_str})",
+        f"Generalisation Gap vs χ² Divergence  (d={dimension}, ε={epsilon}{target_str})",
         fontsize=12,
         y=1.02,
     )
  
     eps_str    = str(epsilon).replace(".", "p")
-    target_str = f"_{target_mode}" if target_mode else ""
-    filename   = f"test_mse_vs_chi_sq_eps{eps_str}_d{dimension}{target_str}.png"
+    target_tag = f"_{target_mode}" if target_mode else ""
+    filename   = f"gen_gap_vs_chi_sq_eps{eps_str}_d{dimension}{target_tag}.png"
  
     save_figure(filename, plot_dir)
- 
+
 # ==================================================================
 # 2 - Var(w(x)) vs Chi-Squared Divergence - Value of Epsilon Fixed
 # ==================================================================
@@ -409,12 +482,12 @@ def plot_weight_variance_vs_chi_sq_fixed_epsilon(
             ax.set_ylabel("Weight Variance", fontsize=10)
             continue
  
-        color = SHIFT_COLORS[shift]
+        colour = SHIFT_COLOURS[shift]
  
         ax.plot(
             subset["chi_sq_mid"],
             subset["weight_variance_mean"],
-            color=color,
+            color=colour,
             linewidth=2,
             marker="o",
             markersize=3,
@@ -583,12 +656,12 @@ def plot_ess_vs_chi_sq_fixed_epsilon(
             ax.set_ylabel("ESS", fontsize=10)
             continue
  
-        color = SHIFT_COLORS[shift]
+        colour = SHIFT_COLOURS[shift]
  
         ax.plot(
             subset["chi_sq_mid"],
             subset["ess_mean"],
-            color=color,
+            color=colour,
             linewidth=2,
             marker="o",
             markersize=3,
@@ -736,7 +809,7 @@ def plot_test_mse_vs_ess_fixed_epsilon(
  
             ls = SHIFT_LINESTYLES[shift]
  
-            for model, color in [
+            for model, colour in [
                 (model_uw, COLOUR_UNWEIGHTED),
                 (model_w,  COLOUR_WEIGHTED),
             ]:
@@ -752,7 +825,7 @@ def plot_test_mse_vs_ess_fixed_epsilon(
                 ax.plot(
                     subset["ess_mid"],
                     subset["test_mse_mean"],
-                    color=color,
+                    color=colour,
                     linestyle=ls,
                     linewidth=1.8,
                     marker="o",
@@ -770,7 +843,7 @@ def plot_test_mse_vs_ess_fixed_epsilon(
     # 5. SHARED LEGEND
     # --------------------------------------------------------
  
-    color_handles = [
+    colour_handles = [
         mlines.Line2D([], [], color=COLOUR_UNWEIGHTED, linewidth=2, label="unweighted"),
         mlines.Line2D([], [], color=COLOUR_WEIGHTED,   linewidth=2, label="weighted"),
     ]
@@ -781,9 +854,9 @@ def plot_test_mse_vs_ess_fixed_epsilon(
     ]
  
     fig.legend(
-        handles=color_handles + style_handles,
+        handles=colour_handles + style_handles,
         loc="lower center",
-        ncol=len(color_handles) + len(style_handles),
+        ncol=len(colour_handles) + len(style_handles),
         fontsize=9,
         frameon=True,
         bbox_to_anchor=(0.5, -0.08),
@@ -823,6 +896,15 @@ def plot_chi_squared_vs_lambda(
     since chi-squared is identical across all models for the same
     experimental configuration.
  
+    The theoretical chi-squared under mean shift is exp(d * lambda^2) - 1,
+    which grows rapidly with both lambda and d. The sample-based estimator
+    (computed from n=1000 draws from N(0,I)) becomes unreliable when
+    d * lambda^2 is large, because training points have negligible overlap
+    with the shifted distribution, causing the estimator to collapse toward
+    zero. Warnings are printed when this is detected.
+ 
+    inf and NaN values are always filtered before plotting.
+ 
     Layout
     ------
     3 panels side by side, one per dimension:
@@ -839,8 +921,6 @@ def plot_chi_squared_vs_lambda(
         Directory to save the figure.
     target_mode : str or None
         If provided, filters to "linear" or "nonlinear".
-        Since chi-squared doesn't depend on target_mode either,
-        this only affects which rows are included before deduplication.
     figsize     : tuple
         Figure size.
     """
@@ -850,8 +930,6 @@ def plot_chi_squared_vs_lambda(
     # --------------------------------------------------------
  
     data = df.copy()
- 
-    # Fix shift type to mean (alpha=1, lambda varies)
     data = data[data["shift_type"] == "mean"]
  
     if target_mode is not None:
@@ -863,15 +941,40 @@ def plot_chi_squared_vs_lambda(
  
     # --------------------------------------------------------
     # 2. DEDUPLICATE BY MODEL
-    #    Chi-squared is identical across models. Keep one
-    #    representative to avoid inflating the aggregation.
     # --------------------------------------------------------
  
     data = data[data["model_type"] == "ols"].copy()
  
     # --------------------------------------------------------
-    # 3. AGGREGATE over seeds and epsilon levels
-    #    No binning needed — lambda has only 5 discrete values.
+    # 3. FILTER inf AND NaN
+    # --------------------------------------------------------
+ 
+    n_before = len(data)
+    data = data[np.isfinite(data["chi_squared_divergence"])].copy()
+    n_after = len(data)
+ 
+    if n_after < n_before:
+        print(
+            f"[INFO] Dropped {n_before - n_after} rows with inf/NaN "
+            f"chi_squared_divergence before aggregation."
+        )
+ 
+    if data.empty:
+        print("[WARN] No finite chi_squared_divergence values remain. Skipping.")
+        return
+ 
+    # --------------------------------------------------------
+    # 4. WARN ABOUT UNRELIABLE LAMBDA VALUES PER DIMENSION
+    # --------------------------------------------------------
+ 
+    lambda_vals = sorted(data["lambda"].unique().tolist())
+    print(f"\n[CHI-SQUARED VS LAMBDA] Reliability check (threshold: d·λ² > {SAMPLE_ESTIMATOR_EXPONENT_THRESHOLD})")
+    for d in DIMENSIONS:
+        _check_estimator_reliability(d, lambda_vals)
+    print()
+ 
+    # --------------------------------------------------------
+    # 5. AGGREGATE over seeds and epsilon levels
     # --------------------------------------------------------
  
     agg = aggregate_results(
@@ -881,7 +984,16 @@ def plot_chi_squared_vs_lambda(
     )
  
     # --------------------------------------------------------
-    # 4. PLOT
+    # 6. WARN ABOUT NON-MONOTONE BEHAVIOUR IN AGGREGATED VALUES
+    # --------------------------------------------------------
+ 
+    for d in DIMENSIONS:
+        subset = agg[agg["dimension"] == d].sort_values("lambda")
+        if not subset.empty:
+            _check_non_monotone(d, subset)
+ 
+    # --------------------------------------------------------
+    # 7. PLOT
     # --------------------------------------------------------
  
     fig, axes = plt.subplots(1, 3, figsize=figsize, sharey=False)
@@ -894,20 +1006,26 @@ def plot_chi_squared_vs_lambda(
  
         if subset.empty:
             ax.set_title(DIM_LABELS[d], fontsize=11)
-            ax.set_xlabel("λ", fontsize=10)
+            ax.set_xlabel("λ (mean shift magnitude)", fontsize=10)
             ax.set_ylabel("χ² Divergence", fontsize=10)
             continue
  
-        color = DIM_COLORS[d]
+        colour = DIM_COLOURS[d]
  
         ax.plot(
             subset["lambda"],
             subset["chi_squared_divergence_mean"],
-            color=color,
+            color=colour,
             linewidth=2,
             marker="o",
             markersize=4,
         )
+ 
+        # Clean y-axis formatting based on value magnitude
+        ax.yaxis.set_major_formatter(
+            _nice_y_formatter(subset["chi_squared_divergence_mean"])
+        )
+        ax.yaxis.set_major_locator(ticker.MaxNLocator(nbins=6, prune="both"))
  
         ax.set_title(DIM_LABELS[d], fontsize=11, fontweight="normal", pad=8)
         ax.set_xlabel("λ (mean shift magnitude)", fontsize=10)
@@ -918,7 +1036,7 @@ def plot_chi_squared_vs_lambda(
         ax.set_ylim(bottom=0)
  
     # --------------------------------------------------------
-    # 5. TITLE AND SAVE
+    # 8. TITLE AND SAVE
     # --------------------------------------------------------
  
     target_tag = f", target={target_mode}" if target_mode else ""
@@ -952,9 +1070,14 @@ def plot_chi_squared_vs_alpha(
     experimental configuration.
  
     Under covariance shift, chi-squared grows exponentially with both
-    alpha and dimension. At high d (e.g. d=50) and high alpha (e.g.
-    alpha=2 or alpha=3), the values become extreme and compress the rest
-    of the plot. Use alpha_max to exclude these if needed.
+    alpha and dimension. At alpha >= 2 the chi-squared integral diverges
+    mathematically, and at high d (e.g. d=50) this causes torch.float64
+    overflow in the computed values, producing inf, NaN, or clipped
+    values that corrupt the plot. Use alpha_max=1.5 to restrict to the
+    numerically safe regime.
+ 
+    inf and NaN values are always filtered before plotting regardless
+    of alpha_max.
  
     Layout
     ------
@@ -974,10 +1097,10 @@ def plot_chi_squared_vs_alpha(
         If provided, filters to "linear" or "nonlinear".
     alpha_max   : float or None
         If provided, excludes rows where alpha > alpha_max before
-        plotting. Useful for preventing extreme chi-squared values at
-        high alpha and high dimension from compressing the y-axis.
-        E.g. alpha_max=1.5 excludes alpha=2.0 and alpha=3.0.
-        Default None (no exclusion).
+        plotting. Recommended: alpha_max=1.5 to stay in the regime
+        where chi-squared is finite and numerically stable.
+        Default None (no exclusion, but a warning is printed if
+        alpha >= 2 rows are present).
     figsize     : tuple
         Figure size.
     """
@@ -994,13 +1117,28 @@ def plot_chi_squared_vs_alpha(
     if target_mode is not None:
         data = data[data["target_mode"] == target_mode]
  
+    # --------------------------------------------------------
+    # 2. WARN IF alpha >= 2 IS PRESENT AND alpha_max NOT SET
+    # --------------------------------------------------------
+ 
+    dangerous_alphas = sorted(
+        data[data["alpha"] >= 2.0]["alpha"].unique().tolist()
+    )
+ 
+    if len(dangerous_alphas) > 0 and alpha_max is None:
+        print(
+            f"[WARN] alpha >= 2 detected: {dangerous_alphas}. "
+            f"Chi-squared divergence is mathematically infinite for alpha >= 2 "
+            f"and will overflow torch.float64 at high dimensions, producing "
+            f"corrupted values. Consider setting alpha_max=1.5."
+        )
+    elif len(dangerous_alphas) > 0 and alpha_max is None:
+        pass
+ 
     if alpha_max is not None:
-        excluded = data[data["alpha"] > alpha_max]["alpha"].unique()
+        excluded = sorted(data[data["alpha"] > alpha_max]["alpha"].unique().tolist())
         if len(excluded) > 0:
-            print(
-                f"[INFO] Excluding alpha values > {alpha_max}: "
-                f"{sorted(excluded)}"
-            )
+            print(f"[INFO] Excluding alpha values > {alpha_max}: {excluded}")
         data = data[data["alpha"] <= alpha_max]
  
     if data.empty:
@@ -1008,15 +1146,35 @@ def plot_chi_squared_vs_alpha(
         return
  
     # --------------------------------------------------------
-    # 2. DEDUPLICATE BY MODEL
-    #    Chi-squared is identical across models. Keep one
-    #    representative to avoid inflating the aggregation.
+    # 3. DEDUPLICATE BY MODEL
     # --------------------------------------------------------
  
     data = data[data["model_type"] == "ols"].copy()
  
     # --------------------------------------------------------
-    # 3. AGGREGATE over seeds and epsilon levels
+    # 4. FILTER inf AND NaN FROM chi_squared_divergence
+    #    Overflow at high d and alpha produces inf/NaN values
+    #    which corrupt aggregation. Drop them explicitly.
+    # --------------------------------------------------------
+ 
+    n_before = len(data)
+    data = data[
+        np.isfinite(data["chi_squared_divergence"])
+    ].copy()
+    n_after = len(data)
+ 
+    if n_after < n_before:
+        print(
+            f"[INFO] Dropped {n_before - n_after} rows with inf/NaN "
+            f"chi_squared_divergence (likely float64 overflow at high d and alpha)."
+        )
+ 
+    if data.empty:
+        print("[WARN] No finite chi_squared_divergence values remain. Skipping.")
+        return
+ 
+    # --------------------------------------------------------
+    # 5. AGGREGATE over seeds and epsilon levels
     #    No binning needed — alpha has only 5 discrete values
     #    (or fewer if alpha_max is set).
     # --------------------------------------------------------
@@ -1028,7 +1186,7 @@ def plot_chi_squared_vs_alpha(
     )
  
     # --------------------------------------------------------
-    # 4. PLOT
+    # 6. PLOT
     # --------------------------------------------------------
  
     fig, axes = plt.subplots(1, 3, figsize=figsize, sharey=False)
@@ -1041,16 +1199,16 @@ def plot_chi_squared_vs_alpha(
  
         if subset.empty:
             ax.set_title(DIM_LABELS[d], fontsize=11)
-            ax.set_xlabel("α", fontsize=10)
+            ax.set_xlabel("α (covariance scale factor)", fontsize=10)
             ax.set_ylabel("χ² Divergence", fontsize=10)
             continue
  
-        color = DIM_COLORS[d]
+        colour = DIM_COLOURS[d]
  
         ax.plot(
             subset["alpha"],
             subset["chi_squared_divergence_mean"],
-            color=color,
+            color=colour,
             linewidth=2,
             marker="o",
             markersize=4,
@@ -1071,7 +1229,7 @@ def plot_chi_squared_vs_alpha(
         ax.set_ylim(bottom=0)
  
     # --------------------------------------------------------
-    # 5. TITLE AND SAVE
+    # 7. TITLE AND SAVE
     # --------------------------------------------------------
  
     alpha_str  = f", α ≤ {alpha_max}" if alpha_max is not None else ""

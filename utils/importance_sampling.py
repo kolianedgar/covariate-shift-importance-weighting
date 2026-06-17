@@ -9,6 +9,13 @@ def compute_importance_weights(P0, P1, X, epsilon):
     weights = (1-epsilon) + epsilon * torch.exp(log_p1 - log_p0)
     return weights
 
+def compute_density_ratio(P0, P1, X):
+    log_p0 = log_density(P0, X)
+    log_p1 = log_density(P1, X)
+
+    density_ratios = torch.exp(log_p1 - log_p0)
+    return density_ratios
+
 def effective_sample_size(weights):
     weights = torch.as_tensor(weights)
 
