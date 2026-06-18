@@ -6,7 +6,7 @@ from utils import generate_targets
 from utils import (
     compute_importance_weights,
     weight_statistics,
-    effective_sample_size,
+    compute_effective_sample_size,
     compute_density_ratio
 )
 
@@ -29,7 +29,6 @@ from utils import (
 )
 
 from utils import (
-    monte_carlo_kl_divergence,
     monte_carlo_chi_squared_divergence,
     chi_squared_divergence_theoretical
 )
@@ -207,21 +206,19 @@ def run_single_experiment(
         epsilon=epsilon
     )
 
-    ess = effective_sample_size(weights)
-
     weight_stats = weight_statistics(weights)
 
     # ============================================================
-    # 7. KL DIVERGENCE (MONTE-CARLO ESTIMATION)
-    # ============================================================
-
-    kl_p1_to_p0 = monte_carlo_kl_divergence(P0, P1, n_test)
-
-    # ============================================================
-    # 8. CHI-SQUARED DIVERGENCE (MONTE-CARLO ESTIMATION)
+    # 7. CHI-SQUARED DIVERGENCE (MONTE-CARLO ESTIMATION)
     # ============================================================
 
     chi2_divergence, chi2_weight_mean, chi2_weight_variance = monte_carlo_chi_squared_divergence(P0, P1, n_test)
+
+    # ============================================================
+    # 8. ESTIMATED EFFECTIVE SAMPLE SIZE
+    # ============================================================
+
+    ess_estd = compute_effective_sample_size(chi2_divergence, n_train, epsilon)
 
     # ============================================================
     # 9. CHI-SQUARED DIVERGENCE (THEORETICAL)
@@ -255,7 +252,7 @@ def run_single_experiment(
         chi2_relative_error = np.inf
 
     # ============================================================
-    # 10. CONVERT TO NUMPY
+    # 9. CONVERT TO NUMPY
     # ============================================================
 
     X_train_np = X_train.detach().cpu().numpy()
@@ -269,7 +266,7 @@ def run_single_experiment(
     weights_np = weights.detach().cpu().numpy()
 
     # ============================================================
-    # 11. TRAIN MODEL
+    # 10. TRAIN MODEL
     # ============================================================
 
     if model_type == "ols":
@@ -323,7 +320,7 @@ def run_single_experiment(
         )
 
     # ============================================================
-    # 12. PREDICTIONS
+    # 11. PREDICTIONS
     # ============================================================
 
     y_train_pred = predict_model(
@@ -337,7 +334,7 @@ def run_single_experiment(
     )
 
     # ============================================================
-    # 13. LOSSES
+    # 12. LOSSES
     # ============================================================
 
     train_mse = mse(
@@ -365,7 +362,7 @@ def run_single_experiment(
     )
 
     # ============================================================
-    # 14. RESULTS
+    # 13. RESULTS
     # ============================================================
 
     results = {
@@ -390,9 +387,6 @@ def run_single_experiment(
         # divergence metrics
         # --------------------------------------------------------
 
-        "kl_divergence":
-            kl_p1_to_p0,
-
         "chi_squared_divergence":
             chi2_divergence,
 
@@ -412,8 +406,8 @@ def run_single_experiment(
         # importance-weight diagnostics
         # --------------------------------------------------------
 
-        "ess": ess,
-
+        "ess": ess_estd,
+        
         "weight_mean":
             weight_stats["mean"],
 

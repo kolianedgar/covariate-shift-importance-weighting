@@ -2,22 +2,6 @@ import torch
 import math
 from utils import sample_distribution, compute_density_ratio
 
-def monte_carlo_kl_divergence(P0, P1, n_test):
-    sample_P1 = sample_distribution(
-        dist=P1,
-        n=n_test
-    )
-
-    log_p0 = P0.log_prob(sample_P1)
-
-    log_p1 = P1.log_prob(sample_P1)
-
-    kl_p1_to_p0 = torch.mean(
-        log_p1 - log_p0
-    ).item()
-
-    return kl_p1_to_p0
-
 def monte_carlo_chi_squared_divergence(P0, P1, n_test):
     sample_P0 = sample_distribution(
         dist=P0,

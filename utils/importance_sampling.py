@@ -16,12 +16,9 @@ def compute_density_ratio(P0, P1, X):
     density_ratios = torch.exp(log_p1 - log_p0)
     return density_ratios
 
-def effective_sample_size(weights):
-    weights = torch.as_tensor(weights)
-
-    ess = (weights.sum() ** 2) / (weights.pow(2).sum())
-
-    return ess.item()
+def compute_effective_sample_size(chi2_divergence, n_train, epsilon):
+    estimated_effective_sample_size = n_train / (1+((epsilon ** 2)*chi2_divergence))
+    return estimated_effective_sample_size
 
 def weight_statistics(weights):
 

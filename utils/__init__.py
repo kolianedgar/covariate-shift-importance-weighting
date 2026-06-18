@@ -16,7 +16,7 @@ from .distributions import (
 
 from .importance_sampling import (
     compute_importance_weights,
-    effective_sample_size,
+    compute_effective_sample_size,
     weight_statistics,
     compute_density_ratio
 )
@@ -41,7 +41,6 @@ from .targets import (
 )
 
 from .divergence import (
-    monte_carlo_kl_divergence,
     monte_carlo_chi_squared_divergence,
     chi_squared_divergence_theoretical
 )
@@ -60,7 +59,7 @@ __all__ = [
 
     # importance sampling
     "compute_importance_weights",
-    "effective_sample_size",
+    "compute_effective_sample_size",
     "weight_statistics",
     "compute_density_ratio",
 
@@ -81,7 +80,6 @@ __all__ = [
     "generate_targets",
 
     # divergences
-    "monte_carlo_kl_divergence",
     "monte_carlo_chi_squared_divergence",
     "chi_squared_divergence_theoretical"
 ]
