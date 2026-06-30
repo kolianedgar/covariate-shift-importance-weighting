@@ -20,7 +20,7 @@ GRID_CONFIG_SMALL = {
 
     "dimensions": [2, 10],
 
-    "lambda_grid": [0.0, 0.5, 1.0, 2.0],
+    "lambda_grid": [0.0, 0.5, 1.0, 1.5, 2.0],
 
     "alpha_grid": [1.0, 1.5, 2.0],
 

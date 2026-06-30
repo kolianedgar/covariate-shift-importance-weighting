@@ -16,9 +16,11 @@ from .distributions import (
 
 from .importance_sampling import (
     compute_importance_weights,
-    compute_effective_sample_size,
-    weight_statistics,
-    compute_density_ratio
+    compute_effective_sample_size_theoretical,
+    compute_empirical_weight_variance,
+    compute_density_ratio,
+    compute_effective_sample_size_empirical,
+    calculate_weight_variance
 )
 
 from .metrics import (
@@ -59,9 +61,11 @@ __all__ = [
 
     # importance sampling
     "compute_importance_weights",
-    "compute_effective_sample_size",
-    "weight_statistics",
+    "compute_effective_sample_size_theoretical",
+    "compute_empirical_weight_variance",
     "compute_density_ratio",
+    "compute_effective_sample_size_empirical",
+    "calculate_weight_variance",
 
     # metrics
     "mse",

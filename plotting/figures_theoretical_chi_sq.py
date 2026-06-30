@@ -78,7 +78,7 @@ DIM_LABELS = {
 SAMPLE_ESTIMATOR_EXPONENT_THRESHOLD = 10.0  # d * lambda^2 > 10 is unreliable
 
 # ============================================================
-# 1. Test MSE vs True χ² Divergence - Value of Epsilon Fixed
+# 1. Generalisation Gap vs χ² Divergence - Value of Epsilon Fixed
 # ============================================================
 
 def plot_generalisation_gap_vs_chi_squared_fixed_epsilon(
@@ -92,26 +92,29 @@ def plot_generalisation_gap_vs_chi_squared_fixed_epsilon(
     """
     Plot Generalisation Gap vs theoretical χ² divergence.
 
-    Fixed:
-        epsilon
-        dimension
+    Produces ONE FIGURE PER SHIFT TYPE.
 
-    Layout
-    ------
-    3 panels:
+    Example output files:
 
-        OLS / Weighted OLS
-        Linear SVR / Weighted Linear SVR
-        RBF SVR / Weighted RBF SVR
+        gen_gap_vs_true_chi_sq_eps0p1_d2_mean.png
+        gen_gap_vs_true_chi_sq_eps0p1_d2_covariance.png
+        gen_gap_vs_true_chi_sq_eps0p1_d2_combined.png
 
-    Colour:
-        blue   = unweighted
-        orange = weighted
+    Layout per figure
+    -----------------
+    Panel 1:
+        OLS vs Weighted OLS
 
-    Linestyle:
-        solid  = mean shift
-        dashed = covariance shift
-        dotted = combined shift
+    Panel 2:
+        Linear SVR vs Weighted Linear SVR
+
+    Panel 3:
+        RBF SVR vs Weighted RBF SVR
+
+    Colours
+    --------
+    blue = unweighted
+    red  = weighted
     """
 
     # --------------------------------------------------------
@@ -139,27 +142,27 @@ def plot_generalisation_gap_vs_chi_squared_fixed_epsilon(
         print(
             f"[WARN] No data for "
             f"epsilon={epsilon}, "
-            f"dimension={dimension}. Skipping."
+            f"dimension={dimension}."
         )
 
         return
 
     # --------------------------------------------------------
-    # 2. REMOVE INFINITE χ² VALUES
+    # 2. REMOVE INFINITE χ²
     # --------------------------------------------------------
 
     data = data[
         np.isfinite(
-            data["chi_squared_divergence_theoretical"]
+            data[
+                "chi_squared_divergence_theoretical"
+            ]
         )
     ].copy()
 
     if data.empty:
 
         print(
-            f"[WARN] No finite χ² values for "
-            f"epsilon={epsilon}, "
-            f"dimension={dimension}. Skipping."
+            f"[WARN] No finite χ² values."
         )
 
         return
@@ -171,8 +174,8 @@ def plot_generalisation_gap_vs_chi_squared_fixed_epsilon(
     agg = aggregate_results(
         data,
         groupby_cols=[
-            "model_type",
             "shift_type",
+            "model_type",
             "chi_squared_divergence_theoretical",
         ],
         metric_cols=[
@@ -181,218 +184,182 @@ def plot_generalisation_gap_vs_chi_squared_fixed_epsilon(
     )
 
     # --------------------------------------------------------
-    # 4. PLOT
+    # 4. ONE FIGURE PER SHIFT TYPE
     # --------------------------------------------------------
 
-    fig, axes = plt.subplots(
-        1,
-        3,
-        figsize=figsize,
-        sharey=False,
-    )
+    for shift in SHIFT_TYPES:
 
-    for ax, (
-        model_uw,
-        model_w,
-        panel_title,
-    ) in zip(
-        axes,
-        MODEL_PAIRS,
-    ):
+        shift_data = agg[
+            agg["shift_type"] == shift
+        ]
 
-        for shift in SHIFT_TYPES:
+        if shift_data.empty:
+            continue
 
-            linestyle = SHIFT_LINESTYLES[shift]
+        fig, axes = plt.subplots(
+            1,
+            3,
+            figsize=figsize,
+            sharey=False,
+        )
 
-            for model, colour in [
+        for ax, (
+            model_uw,
+            model_w,
+            panel_title,
+        ) in zip(
+            axes,
+            MODEL_PAIRS,
+        ):
 
-                (model_uw, COLOUR_UNWEIGHTED),
+            # ----------------------------------------
+            # unweighted
+            # ----------------------------------------
 
-                (model_w, COLOUR_WEIGHTED),
+            subset_uw = shift_data[
+                shift_data["model_type"] == model_uw
+            ].sort_values(
+                "chi_squared_divergence_theoretical"
+            )
 
-            ]:
-
-                subset = agg[
-                    (agg["model_type"] == model)
-                    &
-                    (agg["shift_type"] == shift)
-                ].sort_values(
-                    "chi_squared_divergence_theoretical"
-                )
-
-                if subset.empty:
-                    continue
+            if not subset_uw.empty:
 
                 ax.plot(
-                    subset[
+                    subset_uw[
                         "chi_squared_divergence_theoretical"
                     ],
-                    subset[
+                    subset_uw[
                         "generalisation_gap_mean"
                     ],
-                    color=colour,
-                    linestyle=linestyle,
-                    linewidth=1.8,
+                    color="blue",
+                    linewidth=2,
                     marker="o",
-                    markersize=3,
+                    markersize=4,
+                    label="unweighted",
                 )
 
-        ax.xaxis.set_major_formatter(
-            ticker.ScalarFormatter(
-                useMathText=True
+            # ----------------------------------------
+            # weighted
+            # ----------------------------------------
+
+            subset_w = shift_data[
+                shift_data["model_type"] == model_w
+            ].sort_values(
+                "chi_squared_divergence_theoretical"
             )
-        )
 
-        ax.yaxis.set_major_formatter(
-            ticker.ScalarFormatter(
-                useMathText=True
+            if not subset_w.empty:
+
+                ax.plot(
+                    subset_w[
+                        "chi_squared_divergence_theoretical"
+                    ],
+                    subset_w[
+                        "generalisation_gap_mean"
+                    ],
+                    color="red",
+                    linewidth=2,
+                    marker="o",
+                    markersize=4,
+                    label="weighted",
+                )
+
+            # ----------------------------------------
+            # formatting
+            # ----------------------------------------
+
+            ax.set_title(
+                panel_title,
+                fontsize=11,
+                fontweight="normal",
+                pad=8,
             )
+
+            ax.set_xlabel(
+                "True χ² Divergence",
+                fontsize=10,
+            )
+
+            ax.set_ylabel(
+                "Generalisation Gap",
+                fontsize=10,
+            )
+
+            ax.tick_params(
+                labelsize=9,
+            )
+
+            ax.ticklabel_format(
+                axis="y",
+                style="sci",
+                scilimits=(0, 0),
+            )
+
+            ax.grid(
+                True,
+                linewidth=0.4,
+                alpha=0.5,
+            )
+
+            ax.set_xscale("log")
+
+            ax.legend(
+                fontsize=8,
+                frameon=True,
+            )
+
+        # ----------------------------------------------------
+        # title
+        # ----------------------------------------------------
+
+        target_str = (
+            f", target={target_mode}"
+            if target_mode
+            else ""
         )
 
-        plt.setp(
-            ax.xaxis.get_majorticklabels(),
-            rotation=30,
-            ha="right",
+        fig.suptitle(
+            f"Generalisation Gap vs True χ² Divergence\n"
+            f"{SHIFT_TITLES[shift]}"
+            f" (d={dimension}, ε={epsilon}"
+            f"{target_str})",
+            fontsize=12,
+            y=1.03,
         )
 
-        ax.set_title(
-            panel_title,
-            fontsize=11,
-            fontweight="normal",
-            pad=8,
+        # ----------------------------------------------------
+        # save
+        # ----------------------------------------------------
+
+        eps_str = str(epsilon).replace(
+            ".",
+            "p",
         )
 
-        ax.set_xlabel(
-            "True χ² Divergence",
-            fontsize=10,
+        target_tag = (
+            f"_{target_mode}"
+            if target_mode
+            else ""
         )
 
-        ax.set_ylabel(
-            "Generalisation Gap",
-            fontsize=10,
+        filename = (
+            f"gen_gap_vs_chi_sq"
+            f"_eps{eps_str}"
+            f"_d{dimension}"
+            f"_{shift}"
+            f"{target_tag}.png"
         )
 
-        ax.tick_params(
-            labelsize=9,
-        )
-
-        ax.ticklabel_format(
-            axis="x",
-            style="sci",
-            scilimits=(0, 0),
-        )
-
-        ax.ticklabel_format(
-            axis="y",
-            style="sci",
-            scilimits=(0, 0),
+        save_figure(
+            filename,
+            plot_dir,
         )
         
-        ax.grid(
-            True,
-            linewidth=0.4,
-            alpha=0.5,
-        )
-
-        ax.set_xlim(left=0)
-
-    # --------------------------------------------------------
-    # 5. SHARED LEGEND
-    # --------------------------------------------------------
-
-    colour_handles = [
-
-        mlines.Line2D(
-            [],
-            [],
-            color=COLOUR_UNWEIGHTED,
-            linewidth=2,
-            label="unweighted",
-        ),
-
-        mlines.Line2D(
-            [],
-            [],
-            color=COLOUR_WEIGHTED,
-            linewidth=2,
-            label="weighted",
-        ),
-    ]
-
-    style_handles = [
-
-        mlines.Line2D(
-            [],
-            [],
-            color="gray",
-            linestyle=ls,
-            linewidth=2,
-            label=SHIFT_LABELS[s],
-        )
-
-        for s, ls in SHIFT_LINESTYLES.items()
-    ]
-
-    fig.legend(
-        handles=colour_handles + style_handles,
-        loc="lower center",
-        ncol=len(colour_handles) + len(style_handles),
-        fontsize=9,
-        frameon=True,
-        bbox_to_anchor=(0.5, -0.08),
-    )
-
-    # --------------------------------------------------------
-    # 6. TITLE
-    # --------------------------------------------------------
-
-    target_str = (
-        f", target={target_mode}"
-        if target_mode
-        else ""
-    )
-
-    fig.suptitle(
-        f"Generalisation Gap vs "
-        f"True χ² Divergence "
-        f"(d={dimension}, ε={epsilon}"
-        f"{target_str})",
-        fontsize=12,
-        y=1.02,
-    )
-
-    # --------------------------------------------------------
-    # 7. SAVE
-    # --------------------------------------------------------
-
-    eps_str = str(epsilon).replace(
-        ".",
-        "p",
-    )
-
-    target_tag = (
-        f"_{target_mode}"
-        if target_mode
-        else ""
-    )
-
-    filename = (
-        f"gen_gap_vs_true_chi_sq"
-        f"_eps{eps_str}"
-        f"_d{dimension}"
-        f"{target_tag}.png"
-    )
-
-    save_figure(
-        filename,
-        plot_dir,
-    )
-
 # ==================================================================
 # 2. Var(w(x)) vs True χ² Divergence - Value of Epsilon Fixed
 # ==================================================================
 
-def plot_w_var_vs_chi_sq_fixed_epsilon(
+def plot_true_w_var_vs_chi_sq_fixed_epsilon(
     df,
     plot_dir,
     epsilon,
@@ -543,7 +510,7 @@ def plot_w_var_vs_chi_sq_fixed_epsilon(
             "chi_squared_divergence_theoretical",
         ],
         metric_cols=[
-            "weight_variance",
+            "weight_var_true",
         ],
     )
 
@@ -616,7 +583,7 @@ def plot_w_var_vs_chi_sq_fixed_epsilon(
                 "chi_squared_divergence_theoretical"
             ],
             subset[
-                "weight_variance_mean"
+                "weight_var_true_mean"
             ],
             color=colour,
             linewidth=2,
@@ -637,7 +604,7 @@ def plot_w_var_vs_chi_sq_fixed_epsilon(
         )
 
         ax.set_ylabel(
-            "Weight Variance",
+            "True Weight Variance",
             fontsize=10,
         )
 
@@ -666,7 +633,7 @@ def plot_w_var_vs_chi_sq_fixed_epsilon(
     )
 
     fig.suptitle(
-        f"Importance Weight Variance vs "
+        f"True Importance Weight Variance vs "
         f"True χ² Divergence "
         f"(d={dimension}, ε={epsilon}"
         f"{target_str})",
@@ -686,7 +653,7 @@ def plot_w_var_vs_chi_sq_fixed_epsilon(
     )
 
     filename = (
-        f"var_w_vs_true_chi_sq"
+        f"true_var_w_vs_true_chi_sq"
         f"_eps{eps_str}"
         f"_d{dimension}"
         f"{target_tag}.png"
@@ -701,318 +668,7 @@ def plot_w_var_vs_chi_sq_fixed_epsilon(
 # 3. ESS vs True χ² Divergence - Value of Epsilon Fixed
 # ==================================================================
 
-def plot_ess_vs_chi_squared_fixed_epsilon(
-    df,
-    plot_dir,
-    epsilon,
-    dimension=10,
-    target_mode=None,
-    figsize=(16, 5),
-):
-    """
-    Plot Effective Sample Size (ESS) vs theoretical χ² divergence.
-
-    Fixed:
-        epsilon
-        dimension
-
-    One panel per shift type.
-
-    Aggregates only across seeds since χ² is deterministic for a
-    given (dimension, lambda, alpha, shift_type).
-
-    Infinite χ² values (e.g. alpha >= 2 covariance/combined shift)
-    are removed before plotting.
-    """
-
-    # --------------------------------------------------------
-    # 1. FILTER
-    # --------------------------------------------------------
-
-    data = df.copy()
-
-    data = data[
-        data["epsilon"] == epsilon
-    ]
-
-    data = data[
-        data["dimension"] == dimension
-    ]
-
-    if target_mode is not None:
-
-        data = data[
-            data["target_mode"] == target_mode
-        ]
-
-    if data.empty:
-
-        print(
-            f"[WARN] No data for "
-            f"epsilon={epsilon}, "
-            f"dimension={dimension}. Skipping."
-        )
-
-        return
-
-    # --------------------------------------------------------
-    # 2. DEDUPLICATE BY MODEL
-    # --------------------------------------------------------
-
-    data = data[
-        data["model_type"] == "ols"
-    ].copy()
-
-    # --------------------------------------------------------
-    # 3. REMOVE INFINITE χ² VALUES
-    # --------------------------------------------------------
-
-    n_total = len(data)
-
-    n_inf = (
-        ~np.isfinite(
-            data[
-                "chi_squared_divergence_theoretical"
-            ]
-        )
-    ).sum()
-
-    if n_inf > 0:
-
-        print(
-            f"[INFO] Found {n_inf}/{n_total} rows "
-            f"with infinite theoretical χ² divergence."
-        )
-
-    data = data[
-        np.isfinite(
-            data[
-                "chi_squared_divergence_theoretical"
-            ]
-        )
-    ].copy()
-
-    n_remaining = len(data)
-
-    print(
-        f"[INFO] Remaining finite rows: "
-        f"{n_remaining}/{n_total}"
-    )
-
-    if n_remaining == 0:
-
-        print(
-            f"[WARN] All rows for "
-            f"epsilon={epsilon}, "
-            f"dimension={dimension} "
-            f"have infinite χ² divergence."
-        )
-
-        return
-
-    # --------------------------------------------------------
-    # 3b. DIAGNOSTICS
-    # --------------------------------------------------------
-
-    for shift in SHIFT_TYPES:
-
-        n_shift = len(
-            data[
-                data["shift_type"] == shift
-            ]
-        )
-
-        print(
-            f"[INFO] {shift}: "
-            f"{n_shift} finite rows"
-        )
-
-    # --------------------------------------------------------
-    # 4. AGGREGATE OVER SEEDS
-    # --------------------------------------------------------
-
-    agg = aggregate_results(
-        data,
-        groupby_cols=[
-            "shift_type",
-            "chi_squared_divergence_theoretical",
-        ],
-        metric_cols=[
-            "ess",
-        ],
-    )
-
-    # --------------------------------------------------------
-    # 5. PLOT
-    # --------------------------------------------------------
-
-    fig, axes = plt.subplots(
-        1,
-        3,
-        figsize=figsize,
-        sharey=False,
-    )
-
-    for ax, shift in zip(
-        axes,
-        SHIFT_TYPES,
-    ):
-
-        subset = agg[
-            agg["shift_type"] == shift
-        ].sort_values(
-            "chi_squared_divergence_theoretical"
-        )
-
-        if subset.empty:
-
-            print(
-                f"[INFO] Empty panel: "
-                f"shift={shift}, "
-                f"epsilon={epsilon}, "
-                f"d={dimension}"
-            )
-
-            ax.set_title(
-                SHIFT_TITLES[shift],
-                fontsize=11,
-            )
-
-            ax.set_xlabel(
-                "True χ² Divergence",
-                fontsize=10,
-            )
-
-            ax.set_ylabel(
-                "ESS",
-                fontsize=10,
-            )
-
-            continue
-
-        colour = SHIFT_COLOURS[shift]
-
-        ax.plot(
-            subset[
-                "chi_squared_divergence_theoretical"
-            ],
-            subset[
-                "ess_mean"
-            ],
-            color=colour,
-            linewidth=2,
-            marker="o",
-            markersize=4,
-        )
-
-        # --------------------------------------------
-        # scientific notation formatting
-        # --------------------------------------------
-
-        ax.ticklabel_format(
-            axis="x",
-            style="sci",
-            scilimits=(0, 0),
-        )
-
-        ax.ticklabel_format(
-            axis="y",
-            style="sci",
-            scilimits=(0, 0),
-        )
-
-        ax.xaxis.set_major_locator(
-            ticker.MaxNLocator(
-                nbins=5,
-                prune="both",
-            )
-        )
-
-        ax.yaxis.set_major_locator(
-            ticker.MaxNLocator(
-                nbins=6,
-            )
-        )
-
-        plt.setp(
-            ax.xaxis.get_majorticklabels(),
-            rotation=30,
-            ha="right",
-        )
-
-        ax.set_title(
-            SHIFT_TITLES[shift],
-            fontsize=11,
-            fontweight="normal",
-            pad=8,
-        )
-
-        ax.set_xlabel(
-            "True χ² Divergence",
-            fontsize=10,
-        )
-
-        ax.set_ylabel(
-            "ESS",
-            fontsize=10,
-        )
-
-        ax.tick_params(
-            labelsize=9
-        )
-
-        ax.grid(
-            True,
-            linewidth=0.4,
-            alpha=0.5,
-        )
-
-        ax.set_xlim(left=0)
-        ax.set_ylim(bottom=0)
-
-    # --------------------------------------------------------
-    # 6. TITLE AND SAVE
-    # --------------------------------------------------------
-
-    target_str = (
-        f", target={target_mode}"
-        if target_mode
-        else ""
-    )
-
-    fig.suptitle(
-        f"Effective Sample Size vs "
-        f"True χ² Divergence "
-        f"(d={dimension}, ε={epsilon}"
-        f"{target_str})",
-        fontsize=12,
-        y=1.02,
-    )
-
-    eps_str = str(epsilon).replace(
-        ".",
-        "p",
-    )
-
-    target_tag = (
-        f"_{target_mode}"
-        if target_mode
-        else ""
-    )
-
-    filename = (
-        f"ess_vs_true_chi_sq"
-        f"_eps{eps_str}"
-        f"_d{dimension}"
-        f"{target_tag}.png"
-    )
-
-    save_figure(
-        filename,
-        plot_dir,
-    )
-
-def plot_true_ess_vs_chi_squared_fixed_epsilon(
+def plot_empirical_ess_vs_chi_squared_fixed_epsilon(
     df,
     plot_dir,
     epsilon,
@@ -1127,24 +783,6 @@ def plot_true_ess_vs_chi_squared_fixed_epsilon(
         return
 
     # --------------------------------------------------------
-    # 4. COMPUTE TRUE ESS
-    # --------------------------------------------------------
-
-    data["true_ess"] = (
-        n_train
-        /
-        (
-            1.0
-            +
-            epsilon**2
-            *
-            data[
-                "chi_squared_divergence_theoretical"
-            ]
-        )
-    )
-
-    # --------------------------------------------------------
     # 5. DIAGNOSTICS
     # --------------------------------------------------------
 
@@ -1172,7 +810,7 @@ def plot_true_ess_vs_chi_squared_fixed_epsilon(
             "chi_squared_divergence_theoretical",
         ],
         metric_cols=[
-            "true_ess",
+            "ess_empirical",
         ],
     )
 
@@ -1221,7 +859,7 @@ def plot_true_ess_vs_chi_squared_fixed_epsilon(
                 "chi_squared_divergence_theoretical"
             ],
             subset[
-                "true_ess_mean"
+                "ess_empirical_mean"
             ],
             color=colour,
             linewidth=2,
@@ -1273,7 +911,7 @@ def plot_true_ess_vs_chi_squared_fixed_epsilon(
         )
 
         ax.set_ylabel(
-            "True ESS",
+            "Empirical ESS",
             fontsize=10,
         )
 
@@ -1301,7 +939,7 @@ def plot_true_ess_vs_chi_squared_fixed_epsilon(
     )
 
     fig.suptitle(
-        f"Theoretical ESS vs "
+        f"Empirical ESS vs "
         f"True χ² Divergence "
         f"(d={dimension}, "
         f"ε={epsilon}, "
@@ -1327,7 +965,7 @@ def plot_true_ess_vs_chi_squared_fixed_epsilon(
     )
 
     filename = (
-        f"true_ess_vs_chi_sq"
+        f"empirical_ess_vs_chi_sq"
         f"_eps{eps_str}"
         f"_d{dimension}"
         f"_n{n_train}"

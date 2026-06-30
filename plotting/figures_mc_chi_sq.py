@@ -251,7 +251,19 @@ def plot_generalisation_gap_vs_chi_squared_mc_fixed_epsilon(
         ax.tick_params(labelsize=9)
         ax.grid(True, linewidth=0.4, alpha=0.5)
         ax.set_xlim(left=0)
- 
+    
+    ax.ticklabel_format(
+        axis="x",
+        style="sci",
+        scilimits=(0, 0),
+    )
+
+    ax.ticklabel_format(
+        axis="y",
+        style="sci",
+        scilimits=(0, 0),
+    )
+
     # --------------------------------------------------------
     # 6. SHARED LEGEND
     # --------------------------------------------------------
@@ -302,152 +314,241 @@ def plot_w_var_vs_chi_sq_mc_fixed_epsilon(
     epsilon,
     dimension=10,
     target_mode=None,
-    chi_sq_n_bins=20,
     figsize=(16, 5),
 ):
     """
-    Plot importance weight variance vs Chi-Squared divergence, fixed at a single
-    epsilon level.
- 
-    Since importance weights depend only on the distributions (not the
-    model), we deduplicate by taking one representative model before
-    aggregating, avoiding inflated averaging over identical weight values.
- 
-    Layout
-    ------
-    3 panels side by side, one per shift type:
-        Mean Shift | Covariance Shift | Combined Shift
- 
-    Each panel has a single line: weight variance vs KL divergence,
-    aggregated over seeds (and lambda/alpha within each KL bin).
- 
-    Parameters
-    ----------
-    df          : pd.DataFrame
-        Full results dataframe.
-    plot_dir    : str
-        Directory to save the figure.
-    epsilon     : float
-        Contamination level to fix (e.g. 0.05 or 0.50).
-    dimension   : int
-        Dimension to fix (default 10).
-    target_mode : str or None
-        If provided, filters to "linear" or "nonlinear".
-    kl_n_bins   : int
-        Number of equal-width bins for Chi-Squared divergence aggregation.
-    figsize     : tuple
-        Figure size.
+    Plot Monte-Carlo weight variance against
+    Monte-Carlo χ² divergence.
+
+    Uses
+
+        Var(w) = ε² χ²_MC
+
+    computed from the Monte-Carlo estimate
+    of χ² divergence.
     """
- 
+
     # --------------------------------------------------------
     # 1. FILTER
     # --------------------------------------------------------
- 
+
     data = df.copy()
-    data = data[data["epsilon"]   == epsilon]
-    data = data[data["dimension"] == dimension]
- 
+
+    data = data[
+        data["epsilon"] == epsilon
+    ]
+
+    data = data[
+        data["dimension"] == dimension
+    ]
+
     if target_mode is not None:
-        data = data[data["target_mode"] == target_mode]
- 
+
+        data = data[
+            data["target_mode"] == target_mode
+        ]
+
     if data.empty:
-        print(f"[WARN] No data for epsilon={epsilon}, dimension={dimension}. Skipping.")
+
+        print(
+            f"[WARN] No data for "
+            f"epsilon={epsilon}, "
+            f"dimension={dimension}."
+        )
+
         return
- 
+
     # --------------------------------------------------------
-    # 2. DEDUPLICATE BY MODEL
-    #    Weight variance is identical across models for the same
-    #    (lambda, alpha, epsilon, dimension, seed) combination.
-    #    Keep one representative model to avoid duplicated rows.
+    # 2. DEDUPLICATE
     # --------------------------------------------------------
- 
-    data = data[data["model_type"] == "ols"].copy()
- 
+
+    data = data[
+        data["model_type"] == "ols"
+    ].copy()
+
     # --------------------------------------------------------
-    # 3. BIN Chi-Squared DIVERGENCE
+    # 3. REMOVE INVALID χ²
     # --------------------------------------------------------
- 
-    data["chi_sq_bin"] = pd.cut(
-        data["chi_squared_divergence"],
-        bins=chi_sq_n_bins,
-        labels=False,
-    )
- 
-    bin_edges = pd.cut(
-        data["chi_squared_divergence"],
-        bins=chi_sq_n_bins,
-    ).cat.categories
- 
-    bin_centres = np.array([interval.mid for interval in bin_edges])
- 
+
+    data = data[
+        np.isfinite(
+            data["chi_squared_divergence"]
+        )
+    ].copy()
+
+    if data.empty:
+
+        print(
+            "[WARN] No finite MC χ² values."
+        )
+
+        return
+
     # --------------------------------------------------------
-    # 4. AGGREGATE over seeds (and lambda/alpha within each bin)
+    # 4. AGGREGATE OVER SEEDS
     # --------------------------------------------------------
- 
+
     agg = aggregate_results(
         data,
-        groupby_cols=["shift_type", "chi_sq_bin"],
-        metric_cols=["weight_variance"],
+        groupby_cols=[
+            "shift_type",
+            "chi_squared_divergence",
+        ],
+        metric_cols=[
+            "weight_var_monte_carlo",
+        ],
     )
- 
-    agg["chi_sq_mid"] = agg["chi_sq_bin"].apply(
-        lambda b: bin_centres[int(b)] if not pd.isna(b) else np.nan
-    )
-    agg = agg.dropna(subset=["chi_sq_mid"])
- 
+
     # --------------------------------------------------------
     # 5. PLOT
     # --------------------------------------------------------
- 
-    fig, axes = plt.subplots(1, 3, figsize=figsize, sharey=False)
- 
-    for ax, shift in zip(axes, SHIFT_TYPES):
- 
+
+    fig, axes = plt.subplots(
+        1,
+        3,
+        figsize=figsize,
+        sharey=False,
+    )
+
+    for ax, shift in zip(
+        axes,
+        SHIFT_TYPES,
+    ):
+
         subset = agg[
             agg["shift_type"] == shift
-        ].sort_values("chi_sq_mid")
- 
+        ].sort_values(
+            "chi_squared_divergence"
+        )
+
         if subset.empty:
-            ax.set_title(SHIFT_TITLES[shift], fontsize=11)
-            ax.set_xlabel("Monte-Carlo χ² Divergence", fontsize=10)
-            ax.set_ylabel("Weight Variance", fontsize=10)
+
+            ax.set_title(
+                SHIFT_TITLES[shift],
+                fontsize=11,
+            )
+
             continue
- 
+
         colour = SHIFT_COLOURS[shift]
- 
+
         ax.plot(
-            subset["chi_sq_mid"],
-            subset["weight_variance_mean"],
+            subset[
+                "chi_squared_divergence"
+            ],
+            subset[
+                "weight_var_monte_carlo_mean"
+            ],
             color=colour,
             linewidth=2,
             marker="o",
-            markersize=3,
-            label=SHIFT_LABELS[shift],
+            markersize=4,
         )
- 
-        ax.set_title(SHIFT_TITLES[shift], fontsize=11, fontweight="normal", pad=8)
-        ax.set_xlabel("Monte-Carlo χ² Divergence", fontsize=10)
-        ax.set_ylabel("Weight Variance", fontsize=10)
-        ax.tick_params(labelsize=9)
-        ax.grid(True, linewidth=0.4, alpha=0.5)
+
+        ax.ticklabel_format(
+            axis="x",
+            style="sci",
+            scilimits=(0, 0),
+        )
+
+        ax.ticklabel_format(
+            axis="y",
+            style="sci",
+            scilimits=(0, 0),
+        )
+
+        ax.xaxis.set_major_locator(
+            ticker.MaxNLocator(
+                nbins=5,
+            )
+        )
+
+        ax.yaxis.set_major_locator(
+            ticker.MaxNLocator(
+                nbins=6,
+            )
+        )
+
+        plt.setp(
+            ax.xaxis.get_majorticklabels(),
+            rotation=30,
+            ha="right",
+        )
+
+        ax.set_title(
+            SHIFT_TITLES[shift],
+            fontsize=11,
+            pad=8,
+        )
+
+        ax.set_xlabel(
+            "Monte-Carlo χ² Divergence",
+            fontsize=10,
+        )
+
+        ax.set_ylabel(
+            "Monte-Carlo Weight Variance",
+            fontsize=10,
+        )
+
+        ax.tick_params(
+            labelsize=9,
+        )
+
+        ax.grid(
+            True,
+            linewidth=0.4,
+            alpha=0.5,
+        )
+
         ax.set_xlim(left=0)
- 
+        ax.set_ylim(bottom=0)
+
     # --------------------------------------------------------
-    # 6. TITLE AND SAVE
+    # 6. TITLE
     # --------------------------------------------------------
- 
-    target_str = f", target={target_mode}" if target_mode else ""
+
+    target_str = (
+        f", target={target_mode}"
+        if target_mode
+        else ""
+    )
+
     fig.suptitle(
-        f"Importance Weight Variance vs Monte-Carlo χ² Divergence  (d={dimension}, ε={epsilon}{target_str})",
+        f"Monte-Carlo Weight Variance vs "
+        f"Monte-Carlo χ² Divergence "
+        f"(d={dimension}, ε={epsilon}"
+        f"{target_str})",
         fontsize=12,
         y=1.02,
     )
- 
-    eps_str    = str(epsilon).replace(".", "p")
-    target_tag = f"_{target_mode}" if target_mode else ""
-    filename   = f"var_w_vs_mc_chi_sq_eps{eps_str}_d{dimension}{target_tag}.png"
- 
-    save_figure(filename, plot_dir)
+
+    # --------------------------------------------------------
+    # 7. SAVE
+    # --------------------------------------------------------
+
+    eps_str = str(epsilon).replace(
+        ".",
+        "p",
+    )
+
+    target_tag = (
+        f"_{target_mode}"
+        if target_mode
+        else ""
+    )
+
+    filename = (
+        f"weight_var_mc_vs_chi_sq_mc"
+        f"_eps{eps_str}"
+        f"_d{dimension}"
+        f"{target_tag}.png"
+    )
+
+    save_figure(
+        filename,
+        plot_dir,
+    )
 
 # ==================================================================
 # 3. ESS vs MC χ² Divergence - Value of Epsilon Fixed
@@ -772,7 +873,19 @@ def plot_chi_squared_mc_vs_lambda(
             marker="o",
             markersize=4,
         )
- 
+
+        ax.ticklabel_format(
+            axis="x",
+            style="sci",
+            scilimits=(0, 0),
+        )
+
+        ax.ticklabel_format(
+            axis="y",
+            style="sci",
+            scilimits=(0, 0),
+        )
+
         # Clean y-axis formatting based on value magnitude
         ax.yaxis.set_major_formatter(
             nice_y_formatter(subset["chi_squared_divergence_mean"])

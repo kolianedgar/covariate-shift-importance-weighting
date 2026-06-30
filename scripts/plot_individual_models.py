@@ -14,31 +14,18 @@ from plotting import (
     plot_chi_squared_mc_vs_lambda,
     plot_chi_squared_mc_vs_alpha,
     plot_generalisation_gap_vs_chi_squared_fixed_epsilon,
-    plot_w_var_vs_chi_sq_fixed_epsilon,
-    plot_ess_vs_chi_squared_fixed_epsilon,
+    plot_true_w_var_vs_chi_sq_fixed_epsilon,
+    plot_empirical_ess_vs_chi_squared_fixed_epsilon,
     plot_chi_squared_vs_lambda,
     plot_chi_squared_vs_alpha ,
-    plot_true_ess_vs_chi_squared_fixed_epsilon   
+    plot_empirical_ess_vs_chi_squared_fixed_epsilon   
 )
-
-PLOT_DIR_GAP_VS_MC_CSD_SMALL = "results/plots/small/mc_chi_sq/generalisation_gap_vs_mc_chi_sq_divergence"
-PLOT_DIR_WEIGHT_VARIANCE_VS_MC_CSD_SMALL = "results/plots/small/mc_chi_sq/weight_variance_vs_mc_chi_sq_divergence"
-PLOT_DIR_ESS_VS_MC_CSD_SMALL = "results/plots/small/mc_chi_sq/ess_vs_mc_chi_sq_divergence"
-PLOT_DIR_TEST_VS_ESS_SMALL = "results/plots/small/test_mse_vs_ess"
-PLOT_DIR_MC_CSD_VS_LAMBDA_SMALL = "results/plots/small/mc_chi_sq/mc_chi_sq_vs_lambda"
 
 PLOT_DIR_GAP_VS_TRUE_CSD_SMALL = "results/plots/small/true_chi_sq/generalisation_gap_vs_chi_sq_divergence"
 PLOT_DIR_WEIGHT_VARIANCE_VS_TRUE_CSD_SMALL = "results/plots/small/true_chi_sq/weight_variance_vs_chi_sq_divergence"
 PLOT_DIR_ESS_VS_TRUE_CSD_SMALL = "results/plots/small/true_chi_sq/ess_vs_chi_sq_divergence"
 PLOT_DIR_TRUE_ESS_VS_TRUE_CSD_SMALL = "results/plots/small/true_chi_sq/true_ess_vs_chi_sq_divergence"
 PLOT_DIR_TRUE_CSD_VS_LAMBDA_SMALL = "results/plots/small/true_chi_sq/chi_sq_vs_lambda"
-
-PLOT_DIR_GAP_VS_MC_CSD_EXTENDED = "results/plots/extended/mc_chi_sq/generalisation_gap_vs_mc_chi_sq_divergence"
-PLOT_DIR_WEIGHT_VARIANCE_VS_MC_CSD_EXTENDED = "results/plots/extended/mc_chi_sq/weight_variance_vs_mc_chi_sq_divergence"
-PLOT_DIR_ESS_VS_MC_CSD_EXTENDED = "results/plots/extended/mc_chi_sq/ess_vs_mc_chi_sq_divergence"
-PLOT_DIR_TEST_VS_ESS_EXTENDED = "results/plots/extended/test_mse_vs_ess"
-PLOT_DIR_MC_CSD_VS_LAMBDA_EXTENDED = "results/plots/extended/mc_chi_sq/mc_chi_sq_vs_lambda"
-PLOT_DIR_MC_CSD_VS_ALPHA_EXTENDED = "results/plots/extended/mc_chi_sq/mc_chi_sq_vs_alpha"
 
 PLOT_DIR_GAP_VS_TRUE_CSD_EXTENDED = "results/plots/extended/true_chi_sq/generalisation_gap_vs_chi_sq_divergence"
 PLOT_DIR_WEIGHT_VARIANCE_VS_TRUE_CSD_EXTENDED = "results/plots/extended/true_chi_sq/weight_variance_vs_chi_sq_divergence"
@@ -64,18 +51,11 @@ for epsilon in epsilon_grid_small:
         if epsilon==0.0:
             continue
 
-        # plot_generalisation_gap_vs_chi_squared_mc_fixed_epsilon(results_df_small, PLOT_DIR_GAP_VS_MC_CSD_SMALL, epsilon=epsilon, dimension=dimension)
-        # plot_ess_vs_chi_squared_mc_fixed_epsilon(results_df_small, PLOT_DIR_ESS_VS_MC_CSD_SMALL, epsilon=epsilon, dimension=dimension)
-        # plot_w_var_vs_chi_sq_mc_fixed_epsilon(results_df_small, PLOT_DIR_WEIGHT_VARIANCE_VS_MC_CSD_SMALL, epsilon=epsilon, dimension=dimension)
-#         plot_test_mse_vs_ess_fixed_epsilon(results_df_small, PLOT_DIR_TEST_VS_ESS_SMALL, epsilon=epsilon, dimension=dimension)
+        plot_generalisation_gap_vs_chi_squared_fixed_epsilon(results_df_small, PLOT_DIR_GAP_VS_TRUE_CSD_SMALL, epsilon=epsilon, dimension=dimension)
+        # plot_true_w_var_vs_chi_sq_fixed_epsilon(results_df_small, PLOT_DIR_WEIGHT_VARIANCE_VS_TRUE_CSD_SMALL, epsilon=epsilon, dimension=dimension)
+        # plot_empirical_ess_vs_chi_squared_fixed_epsilon(results_df_small, PLOT_DIR_TRUE_ESS_VS_TRUE_CSD_SMALL, epsilon=epsilon, n_train=n_train, dimension=dimension)
 
-#         plot_generalisation_gap_vs_chi_squared_fixed_epsilon(results_df_small, PLOT_DIR_GAP_VS_TRUE_CSD_SMALL, epsilon=epsilon, dimension=dimension)
-#         plot_ess_vs_chi_squared_fixed_epsilon(results_df_small, PLOT_DIR_ESS_VS_TRUE_CSD_SMALL, epsilon=epsilon, dimension=dimension)
-        plot_w_var_vs_chi_sq_fixed_epsilon(results_df_small, PLOT_DIR_WEIGHT_VARIANCE_VS_TRUE_CSD_SMALL, epsilon=epsilon, dimension=dimension)
-        plot_true_ess_vs_chi_squared_fixed_epsilon(results_df_small, PLOT_DIR_TRUE_ESS_VS_TRUE_CSD_SMALL, epsilon=epsilon, dimension=dimension, n_train=n_train)
-
-# plot_chi_squared_mc_vs_lambda(results_df_small, PLOT_DIR_MC_CSD_VS_LAMBDA_SMALL)
-# plot_chi_squared_vs_lambda(results_df_small, PLOT_DIR_TRUE_CSD_VS_LAMBDA_SMALL)
+plot_chi_squared_vs_lambda(results_df_small, PLOT_DIR_TRUE_CSD_VS_LAMBDA_SMALL)
 
 epsilon_grid_extended = [0.0, 0.05, 0.10, 0.20, 0.30, 0.50]
 dimension_grid_extended = [2, 10, 50]
@@ -85,17 +65,10 @@ for epsilon in epsilon_grid_extended:
         if epsilon==0.0:
             continue
 
-        # plot_generalisation_gap_vs_chi_squared_mc_fixed_epsilon(results_df_extended, PLOT_DIR_GAP_VS_MC_CSD_EXTENDED, epsilon=epsilon, dimension=dimension)
-        # plot_ess_vs_chi_squared_mc_fixed_epsilon(results_df_extended, PLOT_DIR_ESS_VS_MC_CSD_EXTENDED, epsilon=epsilon, dimension=dimension)
-        # plot_w_var_vs_chi_sq_mc_fixed_epsilon(results_df_extended, PLOT_DIR_WEIGHT_VARIANCE_VS_MC_CSD_EXTENDED, epsilon=epsilon, dimension=dimension)
-#         plot_test_mse_vs_ess_fixed_epsilon(results_df_extended, PLOT_DIR_TEST_VS_ESS_EXTENDED, epsilon=epsilon, dimension=dimension)
+        plot_generalisation_gap_vs_chi_squared_fixed_epsilon(results_df_extended, PLOT_DIR_GAP_VS_TRUE_CSD_EXTENDED, epsilon=epsilon, dimension=dimension)
+#         plot_true_w_var_vs_chi_sq_fixed_epsilon(results_df_extended, PLOT_DIR_WEIGHT_VARIANCE_VS_TRUE_CSD_EXTENDED, epsilon=epsilon, dimension=dimension)
+#         plot_empirical_ess_vs_chi_squared_fixed_epsilon(results_df_extended, PLOT_DIR_TRUE_ESS_VS_TRUE_CSD_EXTENDED, epsilon=epsilon, n_train=n_train, dimension=dimension)
 
-#         plot_generalisation_gap_vs_chi_squared_fixed_epsilon(results_df_extended, PLOT_DIR_GAP_VS_TRUE_CSD_EXTENDED, epsilon=epsilon, dimension=dimension)
-#         plot_ess_vs_chi_squared_fixed_epsilon(results_df_extended, PLOT_DIR_ESS_VS_TRUE_CSD_EXTENDED, epsilon=epsilon, dimension=dimension)
-        plot_w_var_vs_chi_sq_fixed_epsilon(results_df_extended, PLOT_DIR_WEIGHT_VARIANCE_VS_TRUE_CSD_EXTENDED, epsilon=epsilon, dimension=dimension)
-        plot_true_ess_vs_chi_squared_fixed_epsilon(results_df_extended, PLOT_DIR_TRUE_ESS_VS_TRUE_CSD_EXTENDED, epsilon=epsilon, dimension=dimension, n_train=n_train)
-# plot_chi_squared_mc_vs_alpha(results_df_extended, PLOT_DIR_MC_CSD_VS_ALPHA_EXTENDED)
 # plot_chi_squared_vs_alpha(results_df_extended, PLOT_DIR_TRUE_CSD_VS_ALPHA_EXTENDED, alpha_max=1.5)
 
-# plot_chi_squared_mc_vs_lambda(results_df_extended, PLOT_DIR_MC_CSD_VS_LAMBDA_EXTENDED)
 # plot_chi_squared_vs_lambda(results_df_extended, PLOT_DIR_TRUE_CSD_VS_LAMBDA_EXTENDED)

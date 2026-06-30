@@ -5,9 +5,10 @@ import numpy as np
 from utils import generate_targets
 from utils import (
     compute_importance_weights,
-    weight_statistics,
-    compute_effective_sample_size,
-    compute_density_ratio
+    compute_empirical_weight_variance,
+    compute_effective_sample_size_theoretical,
+    compute_effective_sample_size_empirical,
+    calculate_weight_variance
 )
 
 from utils import (
@@ -206,7 +207,7 @@ def run_single_experiment(
         epsilon=epsilon
     )
 
-    weight_stats = weight_statistics(weights)
+    empirical_weight_variance = compute_empirical_weight_variance(weights)
 
     # ============================================================
     # 7. CHI-SQUARED DIVERGENCE (MONTE-CARLO ESTIMATION)
@@ -214,11 +215,15 @@ def run_single_experiment(
 
     chi2_divergence, chi2_weight_mean, chi2_weight_variance = monte_carlo_chi_squared_divergence(P0, P1, n_test)
 
+    weight_variance_mc = calculate_weight_variance(epsilon, chi2_divergence)
+    
     # ============================================================
     # 8. ESTIMATED EFFECTIVE SAMPLE SIZE
     # ============================================================
 
-    ess_estd = compute_effective_sample_size(chi2_divergence, n_train, epsilon)
+    ess_mc = compute_effective_sample_size_theoretical(chi2_divergence, n_train, epsilon)
+
+    ess_emp = compute_effective_sample_size_empirical(weights)
 
     # ============================================================
     # 9. CHI-SQUARED DIVERGENCE (THEORETICAL)
@@ -250,6 +255,10 @@ def run_single_experiment(
 
     else:
         chi2_relative_error = np.inf
+
+    ess_true = compute_effective_sample_size_theoretical(chi2_divergence_theoretical_value, n_train, epsilon)
+
+    weight_variance_true = calculate_weight_variance(epsilon, chi2_divergence_theoretical_value)
 
     # ============================================================
     # 9. CONVERT TO NUMPY
@@ -406,29 +415,18 @@ def run_single_experiment(
         # importance-weight diagnostics
         # --------------------------------------------------------
 
-        "ess": ess_estd,
+        "ess_theoretical": ess_true,
         
-        "weight_mean":
-            weight_stats["mean"],
+        "ess_empirical": ess_emp,
 
-        "weight_variance":
-            weight_stats["variance"],
+        "ess_monte_carlo": ess_mc,
 
-        "weight_max":
-            weight_stats["maximum"],
+        "weight_var_empirical": empirical_weight_variance,
 
-        "weight_min":
-            weight_stats["minimum"],
+        "weight_var_monte_carlo": weight_variance_mc,
 
-        "weight_q1":
-            weight_stats["lower_quartile"],
-
-        "weight_median":
-            weight_stats["median"],
-
-        "weight_q3":
-            weight_stats["upper_quartile"],
-
+        "weight_var_true": weight_variance_true,
+        
         # --------------------------------------------------------
         # predictive metrics
         # --------------------------------------------------------
