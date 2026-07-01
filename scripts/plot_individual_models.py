@@ -21,13 +21,13 @@ from plotting import (
     plot_empirical_ess_vs_chi_squared_fixed_epsilon   
 )
 
-PLOT_DIR_GAP_VS_TRUE_CSD_SMALL = "results/plots/small/true_chi_sq/generalisation_gap_vs_chi_sq_divergence"
+PLOT_DIR_GAP_VS_TRUE_CSD_SMALL = "results/plots/small/true_chi_sq/gen_gap_vs_chi_sq_div"
 PLOT_DIR_WEIGHT_VARIANCE_VS_TRUE_CSD_SMALL = "results/plots/small/true_chi_sq/weight_variance_vs_chi_sq_divergence"
 PLOT_DIR_ESS_VS_TRUE_CSD_SMALL = "results/plots/small/true_chi_sq/ess_vs_chi_sq_divergence"
 PLOT_DIR_TRUE_ESS_VS_TRUE_CSD_SMALL = "results/plots/small/true_chi_sq/true_ess_vs_chi_sq_divergence"
 PLOT_DIR_TRUE_CSD_VS_LAMBDA_SMALL = "results/plots/small/true_chi_sq/chi_sq_vs_lambda"
 
-PLOT_DIR_GAP_VS_TRUE_CSD_EXTENDED = "results/plots/extended/true_chi_sq/generalisation_gap_vs_chi_sq_divergence"
+PLOT_DIR_GAP_VS_TRUE_CSD_EXTENDED = "results/plots/extended/true_chi_sq/gen_gap_vs_chi_sq_div"
 PLOT_DIR_WEIGHT_VARIANCE_VS_TRUE_CSD_EXTENDED = "results/plots/extended/true_chi_sq/weight_variance_vs_chi_sq_divergence"
 PLOT_DIR_ESS_VS_TRUE_CSD_EXTENDED = "results/plots/extended/true_chi_sq/ess_vs_chi_sq_divergence"
 PLOT_DIR_TRUE_ESS_VS_TRUE_CSD_EXTENDED = "results/plots/extended/true_chi_sq/true_ess_vs_chi_sq_divergence"

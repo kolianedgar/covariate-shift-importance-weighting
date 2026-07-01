@@ -333,7 +333,7 @@ def plot_generalisation_gap_vs_chi_squared_fixed_epsilon(
 
         eps_str = str(epsilon).replace(
             ".",
-            "p",
+            "",
         )
 
         target_tag = (
@@ -343,7 +343,7 @@ def plot_generalisation_gap_vs_chi_squared_fixed_epsilon(
         )
 
         filename = (
-            f"gen_gap_vs_chi_sq"
+            f"gap_vs_div"
             f"_eps{eps_str}"
             f"_d{dimension}"
             f"_{shift}"
