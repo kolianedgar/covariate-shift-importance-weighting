@@ -196,12 +196,48 @@ def plot_generalisation_gap_vs_chi_squared_fixed_epsilon(
         if shift_data.empty:
             continue
 
+        # ----------------------------------------------------
+        # Determine which model pairs are present
+        # ----------------------------------------------------
+
+        available_pairs = []
+
+        for model_uw, model_w, panel_title in MODEL_PAIRS:
+
+            has_uw = (
+                shift_data["model_type"] == model_uw
+            ).any()
+
+            has_w = (
+                shift_data["model_type"] == model_w
+            ).any()
+
+            if has_uw or has_w:
+
+                available_pairs.append(
+                    (
+                        model_uw,
+                        model_w,
+                        panel_title,
+                    )
+                )
+
+        if len(available_pairs) == 0:
+            continue
+
         fig, axes = plt.subplots(
             1,
-            3,
-            figsize=figsize,
+            len(available_pairs),
+            figsize=(5 * len(available_pairs), 5),
             sharey=False,
         )
+
+        if len(available_pairs) == 1:
+            axes = [axes]
+
+        # ----------------------------------------------------
+        # Plot each available model pair
+        # ----------------------------------------------------
 
         for ax, (
             model_uw,
@@ -209,12 +245,8 @@ def plot_generalisation_gap_vs_chi_squared_fixed_epsilon(
             panel_title,
         ) in zip(
             axes,
-            MODEL_PAIRS,
+            available_pairs,
         ):
-
-            # ----------------------------------------
-            # unweighted
-            # ----------------------------------------
 
             subset_uw = shift_data[
                 shift_data["model_type"] == model_uw
@@ -238,10 +270,6 @@ def plot_generalisation_gap_vs_chi_squared_fixed_epsilon(
                     label="unweighted",
                 )
 
-            # ----------------------------------------
-            # weighted
-            # ----------------------------------------
-
             subset_w = shift_data[
                 shift_data["model_type"] == model_w
             ].sort_values(
@@ -263,10 +291,6 @@ def plot_generalisation_gap_vs_chi_squared_fixed_epsilon(
                     markersize=4,
                     label="weighted",
                 )
-
-            # ----------------------------------------
-            # formatting
-            # ----------------------------------------
 
             ax.set_title(
                 panel_title,
@@ -309,7 +333,7 @@ def plot_generalisation_gap_vs_chi_squared_fixed_epsilon(
             )
 
         # ----------------------------------------------------
-        # title
+        # Title
         # ----------------------------------------------------
 
         target_str = (
@@ -328,13 +352,10 @@ def plot_generalisation_gap_vs_chi_squared_fixed_epsilon(
         )
 
         # ----------------------------------------------------
-        # save
+        # Save
         # ----------------------------------------------------
 
-        eps_str = str(epsilon).replace(
-            ".",
-            "",
-        )
+        eps_str = str(epsilon).replace(".", "")
 
         target_tag = (
             f"_{target_mode}"
@@ -354,7 +375,7 @@ def plot_generalisation_gap_vs_chi_squared_fixed_epsilon(
             filename,
             plot_dir,
         )
-        
+                
 # ==================================================================
 # 2. Var(w(x)) vs True χ² Divergence - Value of Epsilon Fixed
 # ==================================================================
@@ -518,16 +539,35 @@ def plot_true_w_var_vs_chi_sq_fixed_epsilon(
     # 5. PLOT
     # --------------------------------------------------------
 
+    available_shifts = [
+        shift
+        for shift in SHIFT_TYPES
+        if not agg[
+            agg["shift_type"] == shift
+        ].empty
+    ]
+
+    if len(available_shifts) == 0:
+
+        print("[WARN] No data to plot.")
+        return
+
     fig, axes = plt.subplots(
         1,
-        3,
-        figsize=figsize,
+        len(available_shifts),
+        figsize=(
+            figsize[0] * len(available_shifts) / 3,
+            figsize[1],
+        ),
         sharey=False,
     )
 
+    if len(available_shifts) == 1:
+        axes = [axes]
+
     for ax, shift in zip(
         axes,
-        SHIFT_TYPES,
+        available_shifts,
     ):
 
         subset = agg[
@@ -535,46 +575,6 @@ def plot_true_w_var_vs_chi_sq_fixed_epsilon(
         ].sort_values(
             "chi_squared_divergence_theoretical"
         )
-
-        if subset.empty:
-
-            ax.set_title(
-                SHIFT_TITLES[shift],
-                fontsize=11,
-            )
-
-            ax.xaxis.set_major_formatter(
-                nice_x_formatter(
-                    subset[
-                        "chi_squared_divergence_theoretical"
-                    ]
-                )
-            )
-
-            ax.xaxis.set_major_locator(
-                ticker.MaxNLocator(
-                    nbins=5,
-                    prune="both",
-                )
-            )
-
-            plt.setp(
-                ax.xaxis.get_majorticklabels(),
-                rotation=30,
-                ha="right",
-            )
-
-            ax.set_xlabel(
-                "True χ² Divergence",
-                fontsize=10,
-            )
-
-            ax.set_ylabel(
-                "Weight Variance",
-                fontsize=10,
-            )
-
-            continue
 
         colour = SHIFT_COLOURS[shift]
 
@@ -619,8 +619,7 @@ def plot_true_w_var_vs_chi_sq_fixed_epsilon(
         )
 
         ax.set_xscale("log")
-
-        ax.set_ylim(bottom=0)
+        ax.set_yscale("log")
 
     # --------------------------------------------------------
     # 6. TITLE AND SAVE
@@ -665,7 +664,7 @@ def plot_true_w_var_vs_chi_sq_fixed_epsilon(
     )
 
 # ==================================================================
-# 3. ESS vs True χ² Divergence - Value of Epsilon Fixed
+# 3. Empirical ESS vs True χ² Divergence - Value of Epsilon Fixed
 # ==================================================================
 
 def plot_empirical_ess_vs_chi_squared_fixed_epsilon(
@@ -818,39 +817,37 @@ def plot_empirical_ess_vs_chi_squared_fixed_epsilon(
     # 7. PLOT
     # --------------------------------------------------------
 
+    available_shifts = [
+        shift
+        for shift in SHIFT_TYPES
+        if not agg[agg["shift_type"] == shift].empty
+    ]
+
+    if len(available_shifts) == 0:
+
+        print("[WARN] No finite data to plot.")
+        return
+
     fig, axes = plt.subplots(
         1,
-        3,
-        figsize=figsize,
+        len(available_shifts),
+        figsize=(5 * len(available_shifts), figsize[1]),
         sharey=False,
     )
 
-    for ax, shift in zip(
-        axes,
-        SHIFT_TYPES,
-    ):
+    if len(available_shifts) == 1:
+        axes = [axes]
 
-        subset = agg[
-            agg["shift_type"] == shift
-        ].sort_values(
-            "chi_squared_divergence_theoretical"
+    for ax, shift in zip(axes, available_shifts):
+
+        subset = (
+            agg[
+                agg["shift_type"] == shift
+            ]
+            .sort_values(
+                "chi_squared_divergence_theoretical"
+            )
         )
-
-        if subset.empty:
-
-            print(
-                f"[INFO] Empty panel: "
-                f"shift={shift}, "
-                f"epsilon={epsilon}, "
-                f"d={dimension}"
-            )
-
-            ax.set_title(
-                SHIFT_TITLES[shift],
-                fontsize=11,
-            )
-
-            continue
 
         colour = SHIFT_COLOURS[shift]
 
@@ -966,6 +963,313 @@ def plot_empirical_ess_vs_chi_squared_fixed_epsilon(
 
     filename = (
         f"empirical_ess_vs_chi_sq"
+        f"_eps{eps_str}"
+        f"_d{dimension}"
+        f"_n{n_train}"
+        f"{target_tag}.png"
+    )
+
+    save_figure(
+        filename,
+        plot_dir,
+    )
+
+def plot_true_ess_vs_chi_squared_fixed_epsilon(
+    df,
+    plot_dir,
+    epsilon,
+    n_train,
+    dimension=10,
+    target_mode=None,
+    figsize=(16, 5),
+):
+    """
+    Plot theoretical ESS vs theoretical χ² divergence.
+
+    Uses
+
+        ESS_true =
+            n_train /
+            (1 + epsilon^2 * chi_squared_divergence)
+
+    Fixed:
+        epsilon
+        dimension
+
+    One panel per shift type.
+
+    Since both ESS_true and χ² are deterministic functions of
+    (dimension, lambda, alpha, shift_type), we aggregate only
+    over duplicate rows arising from seeds/models.
+    """
+
+    # --------------------------------------------------------
+    # 1. FILTER
+    # --------------------------------------------------------
+
+    data = df.copy()
+
+    data = data[
+        data["epsilon"] == epsilon
+    ]
+
+    data = data[
+        data["dimension"] == dimension
+    ]
+
+    if target_mode is not None:
+
+        data = data[
+            data["target_mode"] == target_mode
+        ]
+
+    if data.empty:
+
+        print(
+            f"[WARN] No data for "
+            f"epsilon={epsilon}, "
+            f"dimension={dimension}. Skipping."
+        )
+
+        return
+
+    # --------------------------------------------------------
+    # 2. DEDUPLICATE BY MODEL
+    # --------------------------------------------------------
+
+    data = data[
+        data["model_type"] == "ols"
+    ].copy()
+
+    # --------------------------------------------------------
+    # 3. REMOVE INFINITE χ² VALUES
+    # --------------------------------------------------------
+
+    n_total = len(data)
+
+    n_inf = (
+        ~np.isfinite(
+            data[
+                "chi_squared_divergence_theoretical"
+            ]
+        )
+    ).sum()
+
+    if n_inf > 0:
+
+        print(
+            f"[INFO] Found {n_inf}/{n_total} rows "
+            f"with infinite theoretical χ² divergence."
+        )
+
+    data = data[
+        np.isfinite(
+            data[
+                "chi_squared_divergence_theoretical"
+            ]
+        )
+    ].copy()
+
+    n_remaining = len(data)
+
+    print(
+        f"[INFO] Remaining finite rows: "
+        f"{n_remaining}/{n_total}"
+    )
+
+    if n_remaining == 0:
+
+        print(
+            f"[WARN] All rows for "
+            f"epsilon={epsilon}, "
+            f"dimension={dimension} "
+            f"have infinite χ² divergence."
+        )
+
+        return
+
+    # --------------------------------------------------------
+    # 5. DIAGNOSTICS
+    # --------------------------------------------------------
+
+    for shift in SHIFT_TYPES:
+
+        n_shift = len(
+            data[
+                data["shift_type"] == shift
+            ]
+        )
+
+        print(
+            f"[INFO] {shift}: "
+            f"{n_shift} finite rows"
+        )
+
+    # --------------------------------------------------------
+    # 6. AGGREGATE
+    # --------------------------------------------------------
+
+    agg = aggregate_results(
+        data,
+        groupby_cols=[
+            "shift_type",
+            "chi_squared_divergence_theoretical",
+        ],
+        metric_cols=[
+            "ess_theoretical",
+        ],
+    )
+
+    # --------------------------------------------------------
+    # 7. PLOT
+    # --------------------------------------------------------
+
+    available_shifts = [
+        shift
+        for shift in SHIFT_TYPES
+        if not agg[
+            agg["shift_type"] == shift
+        ].empty
+    ]
+
+    if len(available_shifts) == 0:
+
+        print("[WARN] No shift types available for plotting.")
+        return
+
+    fig, axes = plt.subplots(
+        1,
+        len(available_shifts),
+        figsize=(
+            figsize[0] * len(available_shifts) / 3,
+            figsize[1],
+        ),
+        sharey=False,
+    )
+
+    if len(available_shifts) == 1:
+        axes = [axes]
+
+    for ax, shift in zip(axes, available_shifts):
+
+        subset = agg[
+            agg["shift_type"] == shift
+        ].sort_values(
+            "chi_squared_divergence_theoretical"
+        )
+
+        colour = SHIFT_COLOURS[shift]
+
+        ax.plot(
+            subset[
+                "chi_squared_divergence_theoretical"
+            ],
+            subset[
+                "ess_theoretical_mean"
+            ],
+            color=colour,
+            linewidth=2,
+            marker="o",
+            markersize=4,
+        )
+
+        ax.ticklabel_format(
+            axis="x",
+            style="sci",
+            scilimits=(0, 0),
+        )
+
+        ax.ticklabel_format(
+            axis="y",
+            style="plain",
+        )
+
+        ax.xaxis.set_major_locator(
+            ticker.MaxNLocator(
+                nbins=5,
+                prune="both",
+            )
+        )
+
+        ax.yaxis.set_major_locator(
+            ticker.MaxNLocator(
+                nbins=6,
+            )
+        )
+
+        plt.setp(
+            ax.xaxis.get_majorticklabels(),
+            rotation=30,
+            ha="right",
+        )
+
+        ax.set_title(
+            SHIFT_TITLES[shift],
+            fontsize=11,
+            fontweight="normal",
+            pad=8,
+        )
+
+        ax.set_xlabel(
+            "True χ² Divergence",
+            fontsize=10,
+        )
+
+        ax.set_ylabel(
+            "True ESS",
+            fontsize=10,
+        )
+
+        ax.tick_params(
+            labelsize=9,
+        )
+
+        ax.grid(
+            True,
+            linewidth=0.4,
+            alpha=0.5,
+        )
+
+        ax.set_ylim(bottom=0)
+
+    # --------------------------------------------------------
+    # 8. TITLE
+    # --------------------------------------------------------
+
+    target_str = (
+        f", target={target_mode}"
+        if target_mode
+        else ""
+    )
+
+    fig.suptitle(
+        f"True ESS vs "
+        f"True χ² Divergence "
+        f"(d={dimension}, "
+        f"ε={epsilon}, "
+        f"n={n_train}"
+        f"{target_str})",
+        fontsize=12,
+        y=1.02,
+    )
+
+    # --------------------------------------------------------
+    # 9. SAVE
+    # --------------------------------------------------------
+
+    eps_str = str(epsilon).replace(
+        ".",
+        "p",
+    )
+
+    target_tag = (
+        f"_{target_mode}"
+        if target_mode
+        else ""
+    )
+
+    filename = (
+        f"true_ess_vs_chi_sq"
         f"_eps{eps_str}"
         f"_d{dimension}"
         f"_n{n_train}"
@@ -1501,3 +1805,162 @@ def plot_chi_squared_vs_alpha(
         filename,
         plot_dir,
     )
+
+def export_mc_vs_true_chi_squared_summary(
+    df,
+    output_csv,
+):
+    """
+    Export a summary table comparing Monte-Carlo and theoretical
+    χ² divergence.
+
+    Aggregates over:
+        - random seeds
+        - epsilon
+        - lambda / alpha values
+
+    Groups by:
+        - shift type
+        - dimensionality
+
+    Output columns
+    --------------
+    shift_type
+    dimension
+
+    true_chi_squared_mean
+    true_chi_squared_std
+
+    mc_chi_squared_mean
+    mc_chi_squared_std
+
+    relative_error_mean
+    relative_error_std
+    """
+
+    data = df.copy()
+
+    # --------------------------------------------------------
+    # keep one model only
+    # --------------------------------------------------------
+
+    data = data[
+        data["model_type"] == "ols"
+    ].copy()
+
+    # --------------------------------------------------------
+    # finite theoretical χ² only
+    # --------------------------------------------------------
+
+    data = data[
+        np.isfinite(
+            data[
+                "chi_squared_divergence_theoretical"
+            ]
+        )
+    ].copy()
+
+    if data.empty:
+
+        print(
+            "[WARN] No finite theoretical χ² values."
+        )
+
+        return
+
+    # --------------------------------------------------------
+    # relative error (%)
+    # --------------------------------------------------------
+
+    data["relative_error"] = (
+        100
+        * np.abs(
+            data[
+                "chi_squared_divergence"
+            ]
+            -
+            data[
+                "chi_squared_divergence_theoretical"
+            ]
+        )
+        /
+        np.maximum(
+            data[
+                "chi_squared_divergence_theoretical"
+            ],
+            1e-12,
+        )
+    )
+
+    # --------------------------------------------------------
+    # aggregate
+    # --------------------------------------------------------
+
+    summary = (
+        data
+        .groupby(
+            [
+                "shift_type",
+                "dimension",
+            ]
+        )
+        .agg(
+            true_chi_squared_mean=(
+                "chi_squared_divergence_theoretical",
+                "mean",
+            ),
+            true_chi_squared_std=(
+                "chi_squared_divergence_theoretical",
+                "std",
+            ),
+            mc_chi_squared_mean=(
+                "chi_squared_divergence",
+                "mean",
+            ),
+            mc_chi_squared_std=(
+                "chi_squared_divergence",
+                "std",
+            ),
+            relative_error_mean=(
+                "relative_error",
+                "mean",
+            ),
+            relative_error_std=(
+                "relative_error",
+                "std",
+            ),
+        )
+        .reset_index()
+    )
+
+    # --------------------------------------------------------
+    # ordering
+    # --------------------------------------------------------
+
+    summary["shift_type"] = pd.Categorical(
+        summary["shift_type"],
+        categories=SHIFT_TYPES,
+        ordered=True,
+    )
+
+    summary = summary.sort_values(
+        [
+            "shift_type",
+            "dimension",
+        ]
+    )
+
+    # --------------------------------------------------------
+    # export
+    # --------------------------------------------------------
+
+    summary.to_csv(
+        output_csv,
+        index=False,
+    )
+
+    print(
+        f"[INFO] Saved summary to {output_csv}"
+    )
+
+    return summary
