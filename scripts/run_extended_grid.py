@@ -1,12 +1,11 @@
 from pathlib import Path
 import sys
-import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from experiments import run_experiment_grid
+from experiments import run_external_experiment_grid
 import os
 
 PLOT_DIR = "results/plots/extended"
@@ -17,16 +16,33 @@ os.makedirs(PLOT_DIR, exist_ok=True)
 # EXPERIMENT GRID
 # ============================================================
 
-GRID_CONFIG = {
+GRID_CONFIG_EXTERNAL = {
 
     # --------------------------------------------------------
-    # dimensionality
+    # external datasets
     # --------------------------------------------------------
 
-    "dimensions": [
-        2,
-        10,
-        50,
+    "datasets": [
+        {
+            "source": "sklearn",
+            "dataset_name": "wisconsin",
+            "version": 1
+        },
+        {
+            "source": "sklearn",
+            "dataset_name": "tecator",
+            "version": 1
+        },
+        {
+            "source": "sklearn",
+            "dataset_name": "sberbank_housing",
+            "version": 1
+        },
+        # {
+        #     "source": "csv",
+        #     "file_path": "...",
+        #     "target_column": "...",
+        # },
     ],
 
     # --------------------------------------------------------
@@ -122,20 +138,17 @@ GRID_CONFIG = {
     # fixed experimental parameters
     # --------------------------------------------------------
 
-    "n_train": 1000,
-    "n_test": 1000,
-
     "sigma": 0.1,
 }
 
-results_df = run_experiment_grid(
-    config=GRID_CONFIG,
-    save_path="results/tables/extended/results.csv",
+results_df = run_external_experiment_grid(
+    config=GRID_CONFIG_EXTERNAL,
+    save_path="results/tables/results.csv",
     preview_rows=5,
 )
 
 results_df.to_csv(
-    "results/tables/extended/results.csv",
+    "results/tables/results.csv",
     index=False
 )
-print("[SAVED] results/tables/extended/results.csv")
+print("[SAVED] results/tables/results.csv")

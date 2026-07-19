@@ -4,36 +4,41 @@ import torch
 
 torch.set_default_dtype(torch.float64)
 
-def make_training_distribution(mu, d):
-    covariance_matrix = torch.eye(d)
+def make_training_distribution(mu, covariance_matrix):
 
-    training_dist = MultivariateNormal(loc=mu, covariance_matrix=covariance_matrix)
-    return training_dist
+    return MultivariateNormal(
+        loc=mu,
+        covariance_matrix=covariance_matrix
+    )
 
-def make_P1_mean_shift(mu, lambda_vec, d):
-
-    covariance_matrix = torch.eye(d)
+def make_P1_mean_shift(mu, covariance_matrix, lambda_vec):
 
     mu_1 = mu + lambda_vec
 
-    P1_mean_shift_dist = MultivariateNormal(loc=mu_1, covariance_matrix=covariance_matrix)
-    return P1_mean_shift_dist
+    return MultivariateNormal(
+        loc=mu_1,
+        covariance_matrix=covariance_matrix
+    )
 
-def make_P1_cov_shift(mu, alpha, d):
+def make_P1_cov_shift(mu, covariance_matrix, alpha):
 
-    covariance_matrix = alpha * torch.eye(d)
+    Sigma_1 = alpha * covariance_matrix
 
-    P1_cov_shift_dist = MultivariateNormal(loc=mu, covariance_matrix=covariance_matrix)
-    return P1_cov_shift_dist
+    return MultivariateNormal(
+        loc=mu,
+        covariance_matrix=Sigma_1
+    )
 
-def make_P1_combined(mu, alpha, lambda_vec, d):
+def make_P1_combined(mu, covariance_matrix, alpha, lambda_vec):
 
-    mu_p1 = mu + lambda_vec
+    mu_1 = mu + lambda_vec
 
-    covariance_matrix = alpha * torch.eye(d)
+    Sigma_1 = alpha * covariance_matrix
 
-    P1_combined_dist = MultivariateNormal(loc=mu_p1, covariance_matrix=covariance_matrix)
-    return P1_combined_dist
+    return MultivariateNormal(
+        loc=mu_1,
+        covariance_matrix=Sigma_1
+    )
 
 def sample_distribution(dist, n):
 
@@ -56,4 +61,24 @@ def sample_contaminated_distribution(P0, P1, epsilon, n):
         sample_P0
     )
     
-    return sample_P_epsilon, sample_mask
+    return sample_P_epsilon
+
+def estimate_gaussian_parameters(X):
+
+    mu_hat = X.mean(dim=0)
+    X_centered = X - mu_hat
+    n_samples = X.shape[0]
+
+    eps = 1e-6
+
+    Sigma_hat = (
+        X_centered.T @ X_centered
+    ) / (n_samples - 1)
+
+    Sigma_hat += + eps * torch.eye(
+        Sigma_hat.shape[0],
+        dtype = Sigma_hat.dtype,
+        device = Sigma_hat.device
+    )
+
+    return mu_hat, Sigma_hat

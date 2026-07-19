@@ -28,7 +28,7 @@ def monte_carlo_chi_squared_divergence(P0, P1, n_test):
 
     return chi2_divergence, chi2_weight_mean, chi2_weight_variance
 
-def chi_squared_divergence_theoretical(
+def chi_squared_divergence_theoretical_synthetic(
     d,
     lambda_scalar,
     alpha,
@@ -69,25 +69,60 @@ def chi_squared_divergence_theoretical(
         if alpha >= 2.0:
             return float("inf")
 
-        try:
-
-            return (
-                math.exp(
-                    d * lambda_scalar**2 / (2.0 - alpha)
-                )
-                *
-                (
-                    alpha * (2.0 - alpha)
-                ) ** (-d / 2.0)
-                - 1.0
+        return (
+            math.exp(
+                d * lambda_scalar**2 / (2.0 - alpha)
             )
-
-        except OverflowError:
-
-            return float("inf")
+            *
+            (
+                alpha * (2.0 - alpha)
+            ) ** (-d / 2.0)
+            - 1.0
+        )
 
     else:
 
         raise ValueError(
+            f"Unknown shift_type: {shift_type}"
+        )
+    
+def chi_squared_divergence_theoretical_external(
+        d, 
+        lambda_vec, 
+        covariance_matrix, 
+        alpha, 
+        shift_type
+    ):
+
+    cov_matr_inv = torch.linalg.inv(covariance_matrix)
+    quad_form = lambda_vec @ cov_matr_inv @ lambda_vec
+
+    if shift_type == "mean":
+
+        return torch.exp(quad_form) - 1
+    
+    elif shift_type == "covariance":
+
+        if alpha >=2:
+            return float("inf")
+        
+        return (
+            alpha * (2.0 - alpha)
+        ) ** (-d / 2.0) - 1.0
+    
+    elif shift_type == "combined":
+        
+        if alpha >= 2:
+            return float("inf")
+        
+        return (
+            (alpha*(2-alpha))**(-d / 2)
+            * torch.exp(quad_form / (2 - alpha))
+            - 1
+        )
+        
+    else:
+
+        raise ValueError (
             f"Unknown shift_type: {shift_type}"
         )
