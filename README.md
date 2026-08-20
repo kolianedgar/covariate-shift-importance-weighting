@@ -33,12 +33,12 @@ Dissertation/
 |    |  |      └── true_chi_sq/
 |    |  |             ├── chi_sq_vs_alpha/
 |    |  |             ├── chi_sq_vs_lambda/
-|    |  |              ├── ess_vs_chi_sq_divergence/
-|    |  |              ├── gen_gap_vs_chi_sq_div/
-|    |  |              └── weight_variance_vs_chi_sq_divergence/
+|    |  |             ├── ess_vs_chi_sq_divergence/
+|    |  |             ├── gen_gap_vs_chi_sq_div/
+|    |  |             └── weight_variance_vs_chi_sq_divergence/
 │    │  ├── external/
 |    |  |      ├── mc_div_vs_true_div/
-|    |  |              └── summary.csv
+|    |  |      |       └── summary.csv
 |    |  |      └── true_chi_sq/
 |    |  |              ├── chi_sq_vs_alpha/
 |    |  |              ├── chi_sq_vs_lambda/
@@ -47,7 +47,7 @@ Dissertation/
 |    |  |              └── weight_variance_vs_chi_sq_divergence/
 |    |  └── small/
 |    |       ├── mc_div_vs_true_div/
-|    |               └── summary.csv
+|    |       |       └── summary.csv
 |    |       └── true_chi_sq/
 |    |               ├── chi_sq_vs_alpha/
 |    |               ├── chi_sq_vs_lambda/
@@ -56,11 +56,11 @@ Dissertation/
 |    |               └── weight_variance_vs_chi_sq_divergence/
 │    └── tables/
 |           ├── extended/
-|           |       └── results.csv
+|           |        └── results.csv
 |           ├── external/
-|           |       └── results.csv
+|           |        └── results.csv
 |           └── small/
-|                   └── results.csv
+|                    └── results.csv
 │
 ├── scripts/
 │   ├── plot_extended_results_external.py
