@@ -1,11 +1,125 @@
 import itertools
+import traceback
 from experiments.run_experiment import (
     run_single_synthetic_experiment, 
     run_single_external_experiment
 )
+from joblib import Parallel, delayed
 import torch
 import pandas as pd
 
+def run_synthetic_worker(
+    d,
+    lambda_scalar,
+    alpha,
+    epsilon,
+    model_type,
+    target_mode,
+    shift_type,
+    seed,
+    n_train,
+    n_test,
+    sigma,
+):
+    """
+    Worker executed by a separate process for one synthetic experiment.
+    """
+
+    beta = torch.ones(d)
+
+    try:
+
+        return run_single_synthetic_experiment(
+            d=d,
+            lambda_scalar=lambda_scalar,
+            alpha=alpha,
+            epsilon=epsilon,
+            n_train=n_train,
+            n_test=n_test,
+            sigma=sigma,
+            beta=beta,
+            model_type=model_type,
+            target_mode=target_mode,
+            shift_type=shift_type,
+            seed=seed,
+        )
+
+    except Exception as e:
+
+        print(
+            f"FAILED: "
+            f"d={d}, "
+            f"lambda={lambda_scalar}, "
+            f"alpha={alpha}, "
+            f"epsilon={epsilon}, "
+            f"model={model_type}, "
+            f"target={target_mode}, "
+            f"shift={shift_type}, "
+            f"seed={seed}\n"
+            f"{e}"
+        )
+
+        return None
+
+def run_external_worker(
+    dataset,
+    lambda_scalar,
+    alpha,
+    epsilon,
+    model_type,
+    target_mode,
+    shift_type,
+    seed,
+    sigma,
+):
+    """
+    Worker executed by a separate process.
+    """
+
+    try:
+
+        return run_single_external_experiment(
+
+            dataset=dataset,
+            lambda_scalar=lambda_scalar,
+            alpha=alpha,
+            epsilon=epsilon,
+            sigma=sigma,
+            model_type=model_type,
+            target_mode=target_mode,
+            shift_type=shift_type,
+            seed=seed,
+        )
+
+    except Exception as e:
+
+        if dataset.get("data_id") is not None:
+            dataset_identifier = f"data_id={dataset['data_id']}"
+        else:
+            dataset_identifier = (
+                f"{dataset['dataset_name']}"
+                + (
+                    f" (version={dataset['version']})"
+                    if dataset.get("version") is not None
+                    else ""
+                )
+            )
+
+        print(
+            f"FAILED: dataset={dataset_identifier}, "
+            f"lambda={lambda_scalar}, "
+            f"alpha={alpha}, "
+            f"epsilon={epsilon}, "
+            f"model={model_type}, "
+            f"target={target_mode}, "
+            f"shift={shift_type}, "
+            f"seed={seed}\n"
+            f"{e}"
+        )
+
+        traceback.print_exc()
+        return None
+    
 def run_synthetic_experiment_grid(
     config,
     save_path="covariate_shift_results.csv",
@@ -56,19 +170,12 @@ def run_synthetic_experiment_grid(
     total_experiments = (
 
         len(config["dimensions"])
-
         * len(config["lambda_grid"])
-
         * len(config["alpha_grid"])
-
         * len(config["epsilon_grid"])
-
         * len(config["model_types"])
-
         * len(config["target_modes"])
-
         * len(config["shift_types"])
-
         * len(config["seeds"])
     )
 
@@ -80,65 +187,36 @@ def run_synthetic_experiment_grid(
     # 3. MAIN LOOP
     # ============================================================
 
-    for idx, (
-        d,
-        lambda_scalar,
-        alpha,
-        epsilon,
-        model_type,
-        target_mode,
-        shift_type,
-        seed,
-    ) in enumerate(experiment_iterator):
-
-        print(
-            f"[{idx+1}/{total_experiments}] "
-            f"d={d}, "
-            f"lambda={lambda_scalar}, "
-            f"alpha={alpha}, "
-            f"epsilon={epsilon}, "
-            f"model={model_type}, "
-            f"target={target_mode}, "
-            f"shift={shift_type}, "
-            f"seed={seed}"
+    results = Parallel(
+        n_jobs=-1,
+        verbose=10,
+    )(
+        delayed(run_synthetic_worker)(
+            d,
+            lambda_scalar,
+            alpha,
+            epsilon,
+            model_type,
+            target_mode,
+            shift_type,
+            seed,
+            config["n_train"],
+            config["n_test"],
+            config["sigma"],
         )
+        for (
+            d,
+            lambda_scalar,
+            alpha,
+            epsilon,
+            model_type,
+            target_mode,
+            shift_type,
+            seed,
+        ) in experiment_iterator
+    )
 
-        beta = torch.ones(d)
-
-        try:
-
-            result = run_single_synthetic_experiment(
-
-                d=d,
-
-                lambda_scalar=lambda_scalar,
-
-                alpha=alpha,
-
-                epsilon=epsilon,
-
-                n_train=config["n_train"],
-
-                n_test=config["n_test"],
-
-                sigma=config["sigma"],
-
-                beta=beta,
-
-                model_type=model_type,
-
-                target_mode=target_mode,
-
-                shift_type=shift_type,
-
-                seed=seed,
-            )
-
-            results.append(result)
-
-        except Exception as e:
-
-            print(f"FAILED: {e}")
+    results = [result for result in results if result is not None]
 
     # ============================================================
     # 4. CONVERT TO DATAFRAME
@@ -224,19 +302,12 @@ def run_external_experiment_grid(
     total_experiments = (
 
         len(config["datasets"])
-
         * len(config["lambda_grid"])
-
         * len(config["alpha_grid"])
-
         * len(config["epsilon_grid"])
-
         * len(config["model_types"])
-
         * len(config["target_modes"])
-
         * len(config["shift_types"])
-
         * len(config["seeds"])
     )
 
@@ -248,58 +319,43 @@ def run_external_experiment_grid(
     # 3. MAIN LOOP
     # ============================================================
 
-    for idx, (
-        dataset,
-        lambda_scalar,
-        alpha,
-        epsilon,
-        model_type,
-        target_mode,
-        shift_type,
-        seed,
-    ) in enumerate(experiment_iterator):
+    results = Parallel(
 
-        print(
-            f"[{idx + 1}/{total_experiments}] "
-            f"dataset={dataset}, "
-            f"lambda={lambda_scalar}, "
-            f"alpha={alpha}, "
-            f"epsilon={epsilon}, "
-            f"model={model_type}, "
-            f"target={target_mode}, "
-            f"shift={shift_type}, "
-            f"seed={seed}"
+        n_jobs=-1,
+        verbose=10,
+        batch_size="auto",
+
+    )(
+
+        delayed(run_external_worker)(
+
+            dataset,
+            lambda_scalar,
+            alpha,
+            epsilon,
+            model_type,
+            target_mode,
+            shift_type,
+            seed,
+            config["sigma"],
+
         )
 
-        try:
+        for (
+            dataset,
+            lambda_scalar,
+            alpha,
+            epsilon,
+            model_type,
+            target_mode,
+            shift_type,
+            seed,
+        ) in experiment_iterator
 
-            result = run_single_external_experiment(
+    )
 
-                dataset=dataset,
-
-                lambda_scalar=lambda_scalar,
-
-                alpha=alpha,
-
-                epsilon=epsilon,
-
-                sigma=config["sigma"],
-
-                model_type=model_type,
-
-                target_mode=target_mode,
-
-                shift_type=shift_type,
-
-                seed=seed,
-            )
-
-            results.append(result)
-
-        except Exception as e:
-
-            print(f"FAILED: {e}")
-
+    results = [result for result in results if result is not None]
+    
     # ============================================================
     # 4. CONVERT TO DATAFRAME
     # ============================================================

@@ -189,7 +189,7 @@ def run_single_synthetic_experiment(
     # 5. SAMPLE CONTAMINATED TEST DATA
     # ============================================================
 
-    X_test, contamination_mask = sample_contaminated_distribution(
+    X_test = sample_contaminated_distribution(
         P0=P0,
         P1=P1,
         epsilon=epsilon,
@@ -854,20 +854,20 @@ def run_single_external_experiment(
         # divergence metrics
         # --------------------------------------------------------
 
-        "chi_squared_divergence":
-            chi2_divergence,
-
         "chi_squared_divergence_theoretical":
             chi2_divergence_theoretical_value,
 
-        "chi_squared_relative_error":
-            chi2_relative_error,
+        "chi_squared_div_mc":
+            chi2_divergence,
 
-        "chi2_weight_mean":
+        "chi2_weight_mean_mc":
             chi2_weight_mean,
 
-        "chi2_weight_variance":
+        "chi2_weight_var_mc":
             chi2_weight_variance,
+
+        "chi_squared_relative_error":
+            chi2_relative_error,
         
         # --------------------------------------------------------
         # importance-weight diagnostics

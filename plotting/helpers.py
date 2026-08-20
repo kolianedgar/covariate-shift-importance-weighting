@@ -9,6 +9,23 @@ import numpy as np
 
 def save_figure(filename, plot_dir):
 
+    """
+    Save the current figure to the specified directory.
+
+    Parameters
+    ----------
+    filename : str
+        Name of the output figure file.
+
+    plot_dir : str
+        Directory where the figure will be saved.
+
+    Returns
+    -------
+    None
+        Saves and closes the current matplotlib figure.
+    """
+    
     path = os.path.join(plot_dir, filename)
 
     plt.savefig(

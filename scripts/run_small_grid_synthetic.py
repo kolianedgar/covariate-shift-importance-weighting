@@ -5,7 +5,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from experiments import run_experiment_grid
+from experiments import run_synthetic_experiment_grid
 import os
 
 PLOT_DIR = "results/plots/small"
@@ -48,8 +48,12 @@ GRID_CONFIG_SMALL = {
     "sigma": 0.1,
 }
 
-results_df = run_experiment_grid(
-    config=GRID_CONFIG_SMALL,
-    save_path="results/tables/small/results.csv",
-    preview_rows=5,
-)
+if __name__ == "__main__":
+    
+    results_df = run_synthetic_experiment_grid(
+        config=GRID_CONFIG_SMALL,
+        save_path="results/tables/small/results.csv",
+        preview_rows=5,
+    )
+
+    print("[SAVED] results/tables/small/results.csv")

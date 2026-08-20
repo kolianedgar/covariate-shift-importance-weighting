@@ -25,18 +25,15 @@ GRID_CONFIG_EXTERNAL = {
     "datasets": [
         {
             "source": "sklearn",
-            "dataset_name": "wisconsin",
-            "version": 1
+            "data_id": 1027             # quake
         },
         {
             "source": "sklearn",
-            "dataset_name": "tecator",
-            "version": 1
+            "data_id": 197            # cpu-act
         },
         {
             "source": "sklearn",
-            "dataset_name": "sberbank_housing",
-            "version": 1
+            "data_id": 44964          # Superconductivity
         },
         # {
         #     "source": "csv",
@@ -87,9 +84,11 @@ GRID_CONFIG_EXTERNAL = {
     "model_types": [
 
         # unweighted
+        "ols",
         "rbf_svr",
 
         # weighted
+        "weighted_ols",
         "weighted_rbf_svr",
     ],
 
@@ -131,14 +130,12 @@ GRID_CONFIG_EXTERNAL = {
     "sigma": 0.1,
 }
 
-results_df = run_external_experiment_grid(
-    config=GRID_CONFIG_EXTERNAL,
-    save_path="results/tables/external/results.csv",
-    preview_rows=5,
-)
+if __name__ == "__main__":
 
-results_df.to_csv(
-    "results/tables/results.csv",
-    index=False
-)
-print("[SAVED] results/tables/external/results.csv")
+    results_df = run_external_experiment_grid(
+        config=GRID_CONFIG_EXTERNAL,
+        save_path="results/tables/external/results.csv",
+        preview_rows=5,
+    )
+
+    print("[SAVED] results/tables/external/results.csv")
