@@ -379,3 +379,6 @@ The theoretical chi-squared divergence is calculated directly for the Gaussian d
 The benchmarking experiments approximate the empirical dataset distributions using multivariate Gaussian distributions. Therefore, the benchmarking results should be interpreted as an evaluation of the proposed framework under this Gaussian approximation rather than as an exact representation of the original dataset distributions.
 
 The repository is organised so that the experimental implementation, analysis, and visualisation are separated. This allows the generated result tables to be reused for plotting without having to rerun the computationally expensive experiments.
+
+## Author
+- Edgar Kolian (https://github.com/kolianedgar)
