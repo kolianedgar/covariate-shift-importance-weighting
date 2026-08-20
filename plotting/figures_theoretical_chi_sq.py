@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.lines as mlines
 import matplotlib.ticker as ticker
 
 from .helpers import (
@@ -64,15 +63,21 @@ SHIFT_CMAPS = {
 DIMENSIONS = [2, 10, 50]
  
 DIM_COLOURS = {
-    2:  "#4C9BE8",
-    10: "#E8734C",
-    50: "#6ABF69",
+    2: "#1f77b4",
+    4: "#ff7f0e",
+    10: "#2ca02c",
+    21: "#d62728",
+    50: "#9467bd",
+    81: "#8c564b",
 }
- 
+
 DIM_LABELS = {
-    2:  "d = 2",
+    2: "d = 2",
+    4: "d = 4",
     10: "d = 10",
+    21: "d = 21",
     50: "d = 50",
+    81: "d = 81",
 }
 
 SAMPLE_ESTIMATOR_EXPONENT_THRESHOLD = 10.0  # d * lambda^2 > 10 is unreliable
@@ -325,7 +330,7 @@ def plot_generalisation_gap_vs_chi_squared_fixed_epsilon(
                 alpha=0.5,
             )
 
-            ax.set_xscale("log")
+            # ax.set_xlim(left=0)
 
             ax.legend(
                 fontsize=8,
@@ -375,7 +380,7 @@ def plot_generalisation_gap_vs_chi_squared_fixed_epsilon(
             filename,
             plot_dir,
         )
-                
+
 # ==================================================================
 # 2. Var(w(x)) vs True χ² Divergence - Value of Epsilon Fixed
 # ==================================================================
@@ -618,8 +623,8 @@ def plot_true_w_var_vs_chi_sq_fixed_epsilon(
             alpha=0.5,
         )
 
-        ax.set_xscale("log")
-        ax.set_yscale("log")
+        ax.set_xlim(left=0)
+        ax.set_ylim(bottom=0)
 
     # --------------------------------------------------------
     # 6. TITLE AND SAVE
@@ -1841,6 +1846,22 @@ def export_mc_vs_true_chi_squared_summary(
     data = df.copy()
 
     # --------------------------------------------------------
+    # determine MC χ² column
+    # --------------------------------------------------------
+
+    if "chi_squared_divergence" in data.columns:
+        mc_col = "chi_squared_divergence"
+
+    elif "chi_squared_div_mc" in data.columns:
+        mc_col = "chi_squared_div_mc"
+
+    else:
+        raise ValueError(
+            "Neither 'chi_squared_divergence' nor "
+            "'chi_squared_div_mc' found."
+        )
+
+    # --------------------------------------------------------
     # keep one model only
     # --------------------------------------------------------
 
@@ -1876,7 +1897,7 @@ def export_mc_vs_true_chi_squared_summary(
         100
         * np.abs(
             data[
-                "chi_squared_divergence"
+                mc_col
             ]
             -
             data[
@@ -1914,11 +1935,11 @@ def export_mc_vs_true_chi_squared_summary(
                 "std",
             ),
             mc_chi_squared_mean=(
-                "chi_squared_divergence",
+                mc_col,
                 "mean",
             ),
             mc_chi_squared_std=(
-                "chi_squared_divergence",
+                mc_col,
                 "std",
             ),
             relative_error_mean=(

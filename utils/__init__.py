@@ -12,6 +12,7 @@ from .distributions import (
     make_P1_combined,
     sample_distribution,
     sample_contaminated_distribution,
+    estimate_gaussian_parameters,
 )
 
 from .importance_sampling import (
@@ -44,8 +45,12 @@ from .targets import (
 
 from .divergence import (
     monte_carlo_chi_squared_divergence,
-    chi_squared_divergence_theoretical
+    chi_squared_divergence_theoretical_synthetic,
+    chi_squared_divergence_theoretical_external
 )
+
+from .dataset_helper import load_dataset
+
 __all__ = [
     # density
     "log_density",
@@ -58,6 +63,7 @@ __all__ = [
     "make_P1_combined",
     "sample_distribution",
     "sample_contaminated_distribution",
+    "estimate_gaussian_parameters",
 
     # importance sampling
     "compute_importance_weights",
@@ -85,5 +91,9 @@ __all__ = [
 
     # divergences
     "monte_carlo_chi_squared_divergence",
-    "chi_squared_divergence_theoretical"
+    "chi_squared_divergence_theoretical_synthetic",
+    "chi_squared_divergence_theoretical_external",
+
+    # dataset helpers
+    "load_dataset"
 ]
