@@ -73,7 +73,7 @@ def run_external_worker(
     sigma,
 ):
     """
-    Worker executed by a separate process.
+    Worker executed by a separate process for one external experiment.
     """
 
     try:
